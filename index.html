@@ -1472,7 +1472,7 @@
         await new Promise(resolve => setTimeout(resolve, 700));
         text.textContent = "DevourMC Network";
         dot.classList.add("online");
-        playersEl.textContent = "Online · 128 Players Online"; // Demo player count only. Replace with live API data later.
+        playersEl.textContent = ""; // Demo player count only. Replace with live API data later.
       } catch {
         text.textContent = "Status unavailable";
         dot.classList.add("offline");
