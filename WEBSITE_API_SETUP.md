@@ -27,7 +27,7 @@ Add these values in Vercel Project Settings -> Environment Variables. Keep them 
 - `DISCORD_PURCHASE_WEBHOOK_URL`: Discord webhook for confirmed purchase notifications.
 - `DISCORD_SUPPORT_WEBHOOK_URL`: Discord webhook for support form notifications.
 - `DISCORD_MEDIA_APPLICATION_WEBHOOK_URL`: Discord webhook for media creator applications.
-- `DISCORD_BOT_TOKEN`: Bot token used by `/api/discord-announcements` and `/api/abandoned-checkout`.
+- `DISCORD_BOT_TOKEN`: Bot token used by `/api/discord?action=announcements` and `/api/discord?action=abandoned-checkout`.
 - `DISCORD_ABANDONED_CHECKOUT_CHANNEL_ID`: Channel ID where the existing Discord bot posts abandoned checkout messages.
 - `DISCORD_GUILD_ID`: Discord server ID used to build message links.
 - `DISCORD_ANNOUNCEMENTS_CHANNEL_ID`: Announcements channel ID read by the bot.
@@ -59,7 +59,17 @@ The website does not use Discord login, Discord OAuth, account linking, user DMs
 The abandoned checkout endpoint is:
 
 ```text
-/api/abandoned-checkout
+/api/discord?action=abandoned-checkout
+```
+
+Discord-related website actions are consolidated into one Vercel Function to stay within Hobby plan function limits:
+
+```text
+/api/discord?action=announcements
+/api/discord?action=media-application
+/api/discord?action=support
+/api/discord?action=purchase
+/api/discord?action=abandoned-checkout
 ```
 
 ## Request Flow

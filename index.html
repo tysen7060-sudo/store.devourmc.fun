@@ -2522,7 +2522,7 @@
       const area = document.getElementById("serverUpdatesArea");
       if (!area) return;
       try {
-        const response = await fetch("/api/discord-announcements?limit=3", { headers: { "Accept": "application/json" } });
+        const response = await fetch("/api/discord?action=announcements&limit=3", { headers: { "Accept": "application/json" } });
         const payload = await response.json();
         if (!response.ok || payload?.success !== true) throw new Error("Announcements unavailable");
         const updates = Array.isArray(payload.data) ? payload.data : [];
@@ -3471,7 +3471,7 @@
       status.className = "form-status";
       status.textContent = "Submitting your media application...";
       try {
-        const response = await fetch("/api/media-application", {
+        const response = await fetch("/api/discord?action=media-application", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "application/json" },
           body: JSON.stringify(data)
@@ -3631,7 +3631,7 @@
     }
 
     async function notifySupportDiscord(data) {
-      const response = await fetch("/api/support-webhook", {
+      const response = await fetch("/api/discord?action=support", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         body: JSON.stringify(data)
@@ -4045,10 +4045,10 @@
       const body = JSON.stringify(abandonedCheckoutPayload(reason));
       if (options.keepalive && navigator.sendBeacon) {
         const blob = new Blob([body], { type: "application/json" });
-        if (navigator.sendBeacon("/api/abandoned-checkout", blob)) return;
+        if (navigator.sendBeacon("/api/discord?action=abandoned-checkout", blob)) return;
       }
 
-      fetch("/api/abandoned-checkout", {
+      fetch("/api/discord?action=abandoned-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,

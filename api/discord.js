@@ -1,0 +1,424 @@
+"use strict";
+
+const {
+  RequestError,
+  embed,
+  field,
+  methodGuard,
+  multiline,
+  numberText,
+  readJsonBody,
+  required,
+  safeError,
+  sendDiscordWebhook,
+  text,
+  validUrl
+} = require("./_discord");
+
+const { abandonedCheckoutMessages } = require("../data/abandoned-checkout-messages");
+
+const mediaCooldown = new Map();
+const MEDIA_COOLDOWN_MS = 60 * 1000;
+const deliveredPurchases = new Set();
+const deliveredAbandonedSessions = new Set();
+const processingAbandonedSessions = new Set();
+const MAX_DELIVERED_SESSIONS = 500;
+const VALID_ABANDONED_ITEM_TYPES = new Set(["rank", "crate", "credits"]);
+const DISCORD_TIMEOUT_MS = 8 * 1000;
+const ANNOUNCEMENT_CACHE_TTL_MS = 120 * 1000;
+let announcementCache = { expiresAt: 0, data: null };
+
+function clientKey(req) {
+  return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+}
+
+function cleanMessage(content) {
+  return String(content || "").trim().slice(0, 1800);
+}
+
+function imageAttachments(message) {
+  const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+  return attachments
+    .filter(attachment => String(attachment.content_type || "").startsWith("image/"))
+    .map(attachment => ({
+      url: attachment.url,
+      filename: attachment.filename || "Announcement image"
+    }))
+    .slice(0, 2);
+}
+
+function escapeDiscordMarkdown(value, max = 1000) {
+  return multiline(value, max)
+    .replace(/([\\`*_{}\[\]()#+\-.!|>~])/g, "\\$1")
+    .replace(/@/g, "@\u200b");
+}
+
+function validCheckoutSessionId(value) {
+  return /^checkout_[A-Za-z0-9_-]{8,80}$/.test(String(value || ""));
+}
+
+function positiveNumber(value, fieldName) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    throw new RequestError(`${fieldName} is invalid.`, 400, "VALIDATION_ERROR");
+  }
+  return number;
+}
+
+function positiveQuantity(value) {
+  const quantity = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 999) {
+    throw new RequestError("Cart quantity is invalid.", 400, "VALIDATION_ERROR");
+  }
+  return quantity;
+}
+
+function normalizeAbandonedItem(item) {
+  const type = text(item?.type, 30).toLowerCase();
+  if (!VALID_ABANDONED_ITEM_TYPES.has(type)) {
+    throw new RequestError("Cart contains an unsupported item.", 400, "VALIDATION_ERROR");
+  }
+  const name = required(item?.name, "Item name");
+  const quantity = positiveQuantity(item?.qty ?? item?.quantity);
+  const price = positiveNumber(item?.price, "Item price");
+  return { type, name, quantity, price };
+}
+
+function randomAbandonedMessage() {
+  const messages = abandonedCheckoutMessages.filter(Boolean);
+  if (!messages.length) return "Buy krle bhai, checkout pe chord diya T-T";
+  return messages[Math.floor(Math.random() * messages.length)];
+}
+
+function rememberAbandonedSession(sessionId) {
+  deliveredAbandonedSessions.add(sessionId);
+  if (deliveredAbandonedSessions.size > MAX_DELIVERED_SESSIONS) {
+    const first = deliveredAbandonedSessions.values().next().value;
+    deliveredAbandonedSessions.delete(first);
+  }
+}
+
+async function sendBotChannelMessage(content) {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  const channelId = process.env.DISCORD_ABANDONED_CHECKOUT_CHANNEL_ID;
+  if (!token) throw new RequestError("Discord bot token is not configured.", 500, "BOT_NOT_CONFIGURED");
+  if (!/^\d{16,25}$/.test(String(channelId || ""))) {
+    throw new RequestError("Discord abandoned checkout channel is not configured.", 500, "CHANNEL_NOT_CONFIGURED");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS);
+  try {
+    const response = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        content,
+        allowed_mentions: { parse: [] }
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new RequestError("Discord bot message delivery failed.", 502, "BOT_MESSAGE_FAILED");
+    }
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new RequestError("Discord bot message delivery timed out.", 504, "BOT_MESSAGE_TIMEOUT");
+    }
+    if (error instanceof RequestError) throw error;
+    throw new RequestError("Discord bot message delivery failed.", 502, "BOT_MESSAGE_FAILED");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function handleAnnouncements(req, res) {
+  if (!methodGuard(req, res, "GET")) return;
+  try {
+    const token = process.env.DISCORD_BOT_TOKEN;
+    const channelId = process.env.DISCORD_ANNOUNCEMENTS_CHANNEL_ID;
+    if (!token || !channelId) {
+      res.status(200).json({ success: true, data: [], configured: false, cached: false });
+      return;
+    }
+
+    if (announcementCache.data && announcementCache.expiresAt > Date.now()) {
+      res.status(200).json({ success: true, data: announcementCache.data, cached: true });
+      return;
+    }
+
+    const limit = Math.min(Math.max(Number.parseInt(String(req.query?.limit || "5"), 10) || 5, 1), 5);
+    const response = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages?limit=${limit}`, {
+      headers: { Authorization: `Bot ${token}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Discord status ${response.status}`);
+    }
+
+    const messages = await response.json();
+    const data = (Array.isArray(messages) ? messages : [])
+      .filter(message => cleanMessage(message.content) || imageAttachments(message).length)
+      .map(message => ({
+        id: message.id,
+        content: cleanMessage(message.content),
+        author: message.author?.username || "DevourMC",
+        createdAt: message.timestamp,
+        pinned: Boolean(message.pinned),
+        url: process.env.DISCORD_GUILD_ID
+          ? `https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/${channelId}/${message.id}`
+          : "",
+        attachments: imageAttachments(message)
+      }));
+
+    announcementCache = { expiresAt: Date.now() + ANNOUNCEMENT_CACHE_TTL_MS, data };
+    res.status(200).json({ success: true, data, cached: false });
+  } catch (error) {
+    console.warn("Discord announcements unavailable:", error?.message || "unknown");
+    safeError(res, error, "Server updates are temporarily unavailable.");
+  }
+}
+
+async function handleMediaApplication(req, res) {
+  if (!methodGuard(req, res)) return;
+  try {
+    const key = clientKey(req);
+    const now = Date.now();
+    if ((mediaCooldown.get(key) || 0) > now) {
+      throw new RequestError("Please wait before submitting another application.", 429, "RATE_LIMITED");
+    }
+
+    const body = await readJsonBody(req);
+    if (body.botcheck) {
+      res.status(200).json({ success: true });
+      return;
+    }
+
+    const minecraftUsername = required(body.minecraftUsername, "Minecraft username");
+    const discordUsername = required(body.discordUsername, "Discord username");
+    const age = Number(body.age);
+    const mainPlatform = required(body.mainPlatform, "Main platform");
+    const profileLink = required(body.profileLink, "Profile link");
+    const followers = Number(body.followers);
+    const averageViews = Number(body.averageViews);
+    const contentTypes = Array.isArray(body.contentTypes) ? body.contentTypes.map(item => text(item, 80)).filter(Boolean) : [];
+    const reason = required(body.reason, "Reason");
+    const frequency = required(body.frequency, "Content frequency");
+    const previousExperience = required(body.previousExperience, "Previous experience");
+
+    if (!Number.isFinite(age) || age <= 0) throw new RequestError("Age must be a valid positive number.", 400, "VALIDATION_ERROR");
+    if (!validUrl(profileLink)) throw new RequestError("Channel or profile link must be a valid URL.", 400, "VALIDATION_ERROR");
+    if (!Number.isFinite(followers) || followers < 0) throw new RequestError("Followers or subscribers must not be negative.", 400, "VALIDATION_ERROR");
+    if (!Number.isFinite(averageViews) || averageViews < 0) throw new RequestError("Average views must not be negative.", 400, "VALIDATION_ERROR");
+    if (!contentTypes.length) throw new RequestError("Select at least one content type.", 400, "VALIDATION_ERROR");
+    if (reason.length < 30) throw new RequestError("Reason must be at least 30 characters.", 400, "VALIDATION_ERROR");
+    if (body.agreement !== true) throw new RequestError("Agreement is required.", 400, "VALIDATION_ERROR");
+
+    for (const keyName of ["youtube", "instagram", "twitch", "x", "otherLink"]) {
+      if (body[keyName] && !validUrl(body[keyName])) {
+        throw new RequestError(`${keyName} must be a valid URL.`, 400, "VALIDATION_ERROR");
+      }
+    }
+
+    const referenceId = `MEDIA-${now.toString(36).toUpperCase()}`;
+    await sendDiscordWebhook(process.env.DISCORD_MEDIA_APPLICATION_WEBHOOK_URL, {
+      embeds: [
+        embed("New Media Application", [
+          field("Reference ID", referenceId, true),
+          field("Minecraft Username", minecraftUsername, true),
+          field("Discord Username", discordUsername, true),
+          field("Age", numberText(age), true),
+          field("Main Platform", mainPlatform, true),
+          field("Main Profile", profileLink),
+          field("Followers/Subscribers", numberText(followers), true),
+          field("Average Views", numberText(averageViews), true),
+          field("Content Types", contentTypes.join(", ")),
+          field("Frequency", frequency),
+          field("Previous Minecraft Server Content", previousExperience, true),
+          field("Previous Experience Details", multiline(body.previousDetails, 700)),
+          field("Reason for Applying", multiline(reason, 1000)),
+          field("YouTube", text(body.youtube) || "Not provided"),
+          field("Instagram", text(body.instagram) || "Not provided"),
+          field("Twitch", text(body.twitch) || "Not provided"),
+          field("X", text(body.x) || "Not provided"),
+          field("Other Portfolio", text(body.otherLink) || "Not provided"),
+          field("Additional Information", multiline(body.additionalInfo, 700)),
+          field("Submitted", new Date(now).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }))
+        ])
+      ]
+    });
+
+    mediaCooldown.set(key, now + MEDIA_COOLDOWN_MS);
+    res.status(200).json({ success: true, referenceId });
+  } catch (error) {
+    console.warn("Media application webhook failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Media application could not be submitted.");
+  }
+}
+
+async function handleSupport(req, res) {
+  if (!methodGuard(req, res)) return;
+  try {
+    const body = await readJsonBody(req);
+    const name = required(body.name, "Name");
+    const email = required(body.email, "Email");
+    const category = required(body.category, "Support category");
+    const subject = required(body.subjectLine, "Subject");
+    const message = required(body.message, "Message");
+    if (body.botcheck) {
+      res.status(200).json({ success: true });
+      return;
+    }
+
+    const referenceId = `SUP-${Date.now().toString(36).toUpperCase()}`;
+    await sendDiscordWebhook(process.env.DISCORD_SUPPORT_WEBHOOK_URL, {
+      embeds: [
+        embed("New Support Request", [
+          field("Reference ID", referenceId, true),
+          field("Name", name, true),
+          field("Minecraft Username", text(body.ign) || "Not provided", true),
+          field("Email", email, true),
+          field("Discord Username", text(body.discord) || "Not provided", true),
+          field("Category", category, true),
+          field("Subject", subject),
+          field("Message", multiline(message, 1000)),
+          field("Submitted", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }))
+        ])
+      ]
+    });
+
+    res.status(200).json({ success: true, referenceId });
+  } catch (error) {
+    console.warn("Support Discord webhook failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Support notification could not be delivered.");
+  }
+}
+
+async function handlePurchase(req, res) {
+  if (!methodGuard(req, res)) return;
+  try {
+    const body = await readJsonBody(req);
+    const paymentStatus = text(body.paymentStatus).toLowerCase();
+    if (!["paid", "captured", "succeeded", "success", "completed"].includes(paymentStatus)) {
+      throw new RequestError("Purchase is not confirmed.", 400, "PAYMENT_NOT_CONFIRMED");
+    }
+
+    const orderId = required(body.orderId || body.paymentId || body.orderReference, "Order ID");
+    if (deliveredPurchases.has(orderId)) {
+      res.status(200).json({ success: true, duplicate: true });
+      return;
+    }
+
+    const products = Array.isArray(body.products) ? body.products : [];
+    await sendDiscordWebhook(process.env.DISCORD_PURCHASE_WEBHOOK_URL, {
+      embeds: [
+        embed("New DevourMC Purchase", [
+          field("Player", required(body.minecraftUsername, "Minecraft username"), true),
+          field("Customer Email", text(body.email) || "Not collected", true),
+          field("Customer Discord", text(body.discordUsername) || "Not collected", true),
+          field("Products", products.length ? products.map(item => `${text(item.name)} x ${Number(item.quantity) || 1} (${text(item.category) || "item"})`).join("\n") : "Not provided"),
+          field("Subtotal", `${text(body.currency || "INR")} ${text(body.subtotal)}`, true),
+          field("Coupon", text(body.couponCode) || "None", true),
+          field("Discount", text(body.discountAmount || body.discountValue) || "None", true),
+          field("Final Paid", `${text(body.currency || "INR")} ${text(body.finalPaid)}`, true),
+          field("Order ID", orderId, true),
+          field("Payment Status", text(body.paymentStatus), true),
+          field("Website Order Reference", text(body.orderReference) || orderId),
+          field("Date", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })),
+          field("Notes", multiline(body.notes, 500))
+        ])
+      ]
+    });
+
+    deliveredPurchases.add(orderId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.warn("Purchase Discord webhook skipped/failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Purchase notification could not be delivered.");
+  }
+}
+
+async function handleAbandonedCheckout(req, res) {
+  if (!methodGuard(req, res)) return;
+
+  let sessionId = "";
+  try {
+    const body = await readJsonBody(req, 16 * 1024);
+    sessionId = required(body.checkoutSessionId || body.sessionId, "Checkout session ID");
+    if (!validCheckoutSessionId(sessionId)) {
+      throw new RequestError("Checkout session ID is invalid.", 400, "VALIDATION_ERROR");
+    }
+
+    if (deliveredAbandonedSessions.has(sessionId) || processingAbandonedSessions.has(sessionId)) {
+      res.status(200).json({ success: true, duplicate: true });
+      return;
+    }
+    processingAbandonedSessions.add(sessionId);
+
+    const username = required(body.minecraftUsername || body.username, "Minecraft username");
+    if (username.length > 32) {
+      throw new RequestError("Minecraft username is too long.", 400, "VALIDATION_ERROR");
+    }
+
+    const cart = Array.isArray(body.cart) ? body.cart : [];
+    if (!cart.length) {
+      throw new RequestError("Cart is empty.", 400, "VALIDATION_ERROR");
+    }
+    cart.map(normalizeAbandonedItem);
+
+    const order = body.orderDetails && typeof body.orderDetails === "object" ? body.orderDetails : {};
+    positiveNumber(order.subtotalBeforeDiscount ?? body.subtotal, "Subtotal");
+    positiveNumber(order.discountAmount ?? body.discountAmount ?? 0, "Discount");
+    const finalTotal = positiveNumber(order.finalTotal ?? body.finalTotal, "Final total");
+    if (finalTotal < 0) {
+      throw new RequestError("Final total is invalid.", 400, "VALIDATION_ERROR");
+    }
+
+    const safeMinecraftUsername = escapeDiscordMarkdown(username, 80).replace(/\n+/g, " ");
+    const message = escapeDiscordMarkdown(randomAbandonedMessage(), 160).replace(/\n+/g, " ");
+    const finalMessage = `yoo ${safeMinecraftUsername}, ${message}`.slice(0, 2000);
+
+    await sendBotChannelMessage(finalMessage);
+
+    rememberAbandonedSession(sessionId);
+    processingAbandonedSessions.delete(sessionId);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    if (sessionId) processingAbandonedSessions.delete(sessionId);
+    console.warn("Abandoned checkout bot message skipped/failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Abandoned checkout notification could not be delivered.");
+  }
+}
+
+module.exports = async function handler(req, res) {
+  let body = null;
+  if (req.method !== "GET") {
+    try {
+      body = await readJsonBody(req);
+      req.body = body;
+    } catch (error) {
+      safeError(res, error, "Discord request could not be processed.");
+      return;
+    }
+  }
+
+  const action = text(req.query?.action || body?.action, 80).toLowerCase();
+  switch (action) {
+    case "announcements":
+      return handleAnnouncements(req, res);
+    case "media-application":
+      return handleMediaApplication(req, res);
+    case "support":
+      return handleSupport(req, res);
+    case "purchase":
+      return handlePurchase(req, res);
+    case "abandoned-checkout":
+      return handleAbandonedCheckout(req, res);
+    default:
+      res.status(404).json({ success: false, error: "Unknown action." });
+  }
+};
