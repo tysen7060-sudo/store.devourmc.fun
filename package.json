@@ -1,0 +1,9 @@
+{
+  "name": "devourmc-store",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/verify-build.js",
+    "lint": "node scripts/verify-build.js"
+  }
+}
