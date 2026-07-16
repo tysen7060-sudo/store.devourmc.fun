@@ -1,0 +1,1 @@
+window.DEVOURMC_MEDIA_CREATORS = [];

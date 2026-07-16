@@ -1,0 +1,1 @@
+window.DEVOURMC_STAFF_MEMBERS = [];
