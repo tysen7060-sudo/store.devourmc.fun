@@ -1,5 +1,5 @@
 window.DEVOURMC_MEDIA_APPLICATION_CONFIG = {
-  platforms: ["YouTube", "Instagram", "Twitch", "X", "Other"],
+  mainPlatforms: ["YouTube", "Kick", "Both"],
   contentTypes: [
     "Long-form videos",
     "Shorts or Reels",

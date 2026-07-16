@@ -2207,6 +2207,35 @@
       }
     }
 
+    function validYouTubeChannelUrl(url) {
+      if (!url) return false;
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+        const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+        const path = parsed.pathname.toLowerCase();
+        return host === "youtube.com" && (
+          path.startsWith("/@") ||
+          path.startsWith("/channel/") ||
+          path.startsWith("/c/")
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    function validKickChannelUrl(url) {
+      if (!url) return false;
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+        const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+        return host === "kick.com" && parsed.pathname.split("/").filter(Boolean).length >= 1;
+      } catch {
+        return false;
+      }
+    }
+
     const SOCIAL_LABELS = {
       youtube: ["YT", "YouTube"],
       instagram: "Instagram",
@@ -3372,7 +3401,7 @@
     }
 
     function renderMediaApply() {
-      const platforms = Array.isArray(mediaApplicationConfig.platforms) ? mediaApplicationConfig.platforms : ["YouTube", "Instagram", "Twitch", "X", "Other"];
+      const platforms = Array.isArray(mediaApplicationConfig.mainPlatforms) ? mediaApplicationConfig.mainPlatforms : ["YouTube", "Kick", "Both"];
       const contentTypes = Array.isArray(mediaApplicationConfig.contentTypes) ? mediaApplicationConfig.contentTypes : [];
       const frequencies = Array.isArray(mediaApplicationConfig.frequencies) ? mediaApplicationConfig.frequencies : [];
       document.getElementById("page-media-apply").innerHTML = pageShell("Apply for DevourMC Media", "Tell us about your content, your audience, and why you would like to create content for DevourMC.", `
@@ -3382,11 +3411,13 @@
             ${mediaInput("mediaDiscordUsername", "discordUsername", "Discord username", "text", true)}
             ${mediaInput("mediaAge", "age", "Age", "number", true, "min=\"1\"")}
             <div class="form-row"><label for="mediaMainPlatform">Main content platform</label><select id="mediaMainPlatform" name="mainPlatform" required><option value="">Select platform</option>${platforms.map(item => `<option>${escapeHTML(item)}</option>`).join("")}</select><div class="error-text" data-error-for="mediaMainPlatform"></div></div>
-            ${mediaInput("mediaProfileLink", "profileLink", "Channel or profile link", "url", true)}
+            ${mediaInput("mediaYoutubeUrl", "youtubeUrl", "YouTube Channel Link", "url", false, "placeholder=\"https://www.youtube.com/@yourchannel\"")}
+            ${mediaInput("mediaKickUrl", "kickUrl", "Kick Channel Link", "url", false, "placeholder=\"https://kick.com/yourchannel\"")}
             ${mediaInput("mediaFollowers", "followers", "Current followers or subscribers", "number", true, "min=\"0\"")}
             ${mediaInput("mediaAverageViews", "averageViews", "Average views per video, stream, short, or post", "number", true, "min=\"0\"")}
             <div class="form-row"><label for="mediaFrequency">How often can you create DevourMC content?</label><select id="mediaFrequency" name="frequency" required><option value="">Select frequency</option>${frequencies.map(item => `<option>${escapeHTML(item)}</option>`).join("")}</select><div class="error-text" data-error-for="mediaFrequency"></div></div>
           </div>
+          <div class="error-text" data-error-for="mediaCreatorLinks"></div>
           <fieldset class="form-row">
             <legend>Type of content created</legend>
             <div class="grid grid-3">${contentTypes.map(item => `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="contentTypes" value="${escapeHTML(item)}" style="width:auto;margin-top:3px"> ${escapeHTML(item)}</label>`).join("")}</div>
@@ -3395,13 +3426,6 @@
           <div class="form-row"><label for="mediaReason">Why do you want to become a DevourMC content creator?</label><textarea id="mediaReason" name="reason" required minlength="30"></textarea><div class="error-text" data-error-for="mediaReason"></div></div>
           <div class="form-row"><label for="mediaPreviousExperience">Have you previously created Minecraft server content?</label><select id="mediaPreviousExperience" name="previousExperience" required><option value="">Select answer</option><option>Yes</option><option>No</option></select><div class="error-text" data-error-for="mediaPreviousExperience"></div></div>
           <div class="form-row" id="mediaPreviousDetailsRow" hidden><label for="mediaPreviousDetails">Tell us about your previous experience</label><textarea id="mediaPreviousDetails" name="previousDetails"></textarea></div>
-          <div class="grid grid-2">
-            ${mediaInput("mediaYoutube", "youtube", "YouTube channel link", "url", false)}
-            ${mediaInput("mediaInstagram", "instagram", "Instagram profile link", "url", false)}
-            ${mediaInput("mediaTwitch", "twitch", "Twitch channel link", "url", false)}
-            ${mediaInput("mediaX", "x", "X profile link", "url", false)}
-            ${mediaInput("mediaOtherLink", "otherLink", "Other social or portfolio link", "url", false)}
-          </div>
           <div class="form-row"><label for="mediaAdditionalInfo">Additional information</label><textarea id="mediaAdditionalInfo" name="additionalInfo"></textarea></div>
           <div class="honeypot" aria-hidden="true"><label for="mediaBotcheck">Leave this field empty</label><input id="mediaBotcheck" name="botcheck" tabindex="-1" autocomplete="off"></div>
           <label style="display:flex;gap:10px;align-items:flex-start"><input id="mediaAgreement" name="agreement" type="checkbox" style="width:auto;margin-top:3px"> I confirm that the information provided is accurate and that my content follows the DevourMC community rules.</label>
@@ -3425,22 +3449,28 @@
         ["mediaMinecraftUsername", data.minecraftUsername, "Minecraft username is required."],
         ["mediaDiscordUsername", data.discordUsername, "Discord username is required."],
         ["mediaMainPlatform", data.mainPlatform, "Select a main platform."],
-        ["mediaProfileLink", data.profileLink, "Channel or profile link is required."],
         ["mediaFrequency", data.frequency, "Select a content frequency."],
         ["mediaPreviousExperience", data.previousExperience, "Select yes or no."]
       ];
       requiredFields.forEach(([id, value, message]) => { if (!String(value || "").trim()) errors[id] = message; });
+      const youtubeUrl = String(data.youtubeUrl || "").trim();
+      const kickUrl = String(data.kickUrl || "").trim();
+      const mainPlatform = String(data.mainPlatform || "").trim();
+      if (!youtubeUrl && !kickUrl) errors.mediaCreatorLinks = "Please provide at least one YouTube or Kick channel link.";
+      if (youtubeUrl && !validYouTubeChannelUrl(youtubeUrl)) errors.mediaYoutubeUrl = "Enter a valid YouTube channel URL.";
+      if (kickUrl && !validKickChannelUrl(kickUrl)) errors.mediaKickUrl = "Enter a valid Kick channel URL.";
+      if (mainPlatform === "YouTube" && !youtubeUrl) errors.mediaYoutubeUrl = "Enter a valid YouTube channel URL.";
+      if (mainPlatform === "Kick" && !kickUrl) errors.mediaKickUrl = "Enter a valid Kick channel URL.";
+      if (mainPlatform === "Both") {
+        if (!youtubeUrl) errors.mediaYoutubeUrl = "Enter a valid YouTube channel URL.";
+        if (!kickUrl) errors.mediaKickUrl = "Enter a valid Kick channel URL.";
+      }
       const age = Number(data.age);
       if (!Number.isFinite(age) || age <= 0) errors.mediaAge = "Age must be a valid positive number.";
       const followers = Number(data.followers);
       if (!Number.isFinite(followers) || followers < 0) errors.mediaFollowers = "Followers or subscribers must not be negative.";
       const averageViews = Number(data.averageViews);
       if (!Number.isFinite(averageViews) || averageViews < 0) errors.mediaAverageViews = "Average views must not be negative.";
-      if (!validExternalUrl(data.profileLink)) errors.mediaProfileLink = "Enter a valid URL.";
-      ["mediaYoutube", "mediaInstagram", "mediaTwitch", "mediaX", "mediaOtherLink"].forEach(id => {
-        const input = form.querySelector(`#${id}`);
-        if (input?.value && !validExternalUrl(input.value)) errors[id] = "Enter a valid URL.";
-      });
       if (!data.contentTypes.length) errors.mediaContentTypes = "Select at least one content type.";
       if (String(data.reason || "").trim().length < 30) errors.mediaReason = "Please write at least 30 characters.";
       if (!data.agreement) errors.mediaAgreement = "You must confirm the agreement.";

@@ -11,8 +11,7 @@ const {
   required,
   safeError,
   sendDiscordWebhook,
-  text,
-  validUrl
+  text
 } = require("./_discord");
 
 const { abandonedCheckoutMessages } = require("../data/abandoned-checkout-messages");
@@ -30,6 +29,35 @@ let announcementCache = { expiresAt: 0, data: null };
 
 function clientKey(req) {
   return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+}
+
+function validYouTubeChannelUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(String(url));
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const path = parsed.pathname.toLowerCase();
+    return host === "youtube.com" && (
+      path.startsWith("/@") ||
+      path.startsWith("/channel/") ||
+      path.startsWith("/c/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function validKickChannelUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(String(url));
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    return host === "kick.com" && parsed.pathname.split("/").filter(Boolean).length >= 1;
+  } catch {
+    return false;
+  }
 }
 
 function cleanMessage(content) {
@@ -202,7 +230,8 @@ async function handleMediaApplication(req, res) {
     const discordUsername = required(body.discordUsername, "Discord username");
     const age = Number(body.age);
     const mainPlatform = required(body.mainPlatform, "Main platform");
-    const profileLink = required(body.profileLink, "Profile link");
+    const youtubeUrl = text(body.youtubeUrl, 500);
+    const kickUrl = text(body.kickUrl, 500);
     const followers = Number(body.followers);
     const averageViews = Number(body.averageViews);
     const contentTypes = Array.isArray(body.contentTypes) ? body.contentTypes.map(item => text(item, 80)).filter(Boolean) : [];
@@ -211,20 +240,24 @@ async function handleMediaApplication(req, res) {
     const previousExperience = required(body.previousExperience, "Previous experience");
 
     if (!Number.isFinite(age) || age <= 0) throw new RequestError("Age must be a valid positive number.", 400, "VALIDATION_ERROR");
-    if (!validUrl(profileLink)) throw new RequestError("Channel or profile link must be a valid URL.", 400, "VALIDATION_ERROR");
+    if (!["YouTube", "Kick", "Both"].includes(mainPlatform)) throw new RequestError("Select a valid main platform.", 400, "VALIDATION_ERROR");
+    if (!youtubeUrl && !kickUrl) throw new RequestError("Please provide at least one YouTube or Kick channel link.", 400, "VALIDATION_ERROR");
+    if (youtubeUrl && !validYouTubeChannelUrl(youtubeUrl)) throw new RequestError("Enter a valid YouTube channel URL.", 400, "VALIDATION_ERROR");
+    if (kickUrl && !validKickChannelUrl(kickUrl)) throw new RequestError("Enter a valid Kick channel URL.", 400, "VALIDATION_ERROR");
+    if (mainPlatform === "YouTube" && !youtubeUrl) throw new RequestError("Enter a valid YouTube channel URL.", 400, "VALIDATION_ERROR");
+    if (mainPlatform === "Kick" && !kickUrl) throw new RequestError("Enter a valid Kick channel URL.", 400, "VALIDATION_ERROR");
+    if (mainPlatform === "Both" && (!youtubeUrl || !kickUrl)) throw new RequestError("Please provide both YouTube and Kick channel links.", 400, "VALIDATION_ERROR");
     if (!Number.isFinite(followers) || followers < 0) throw new RequestError("Followers or subscribers must not be negative.", 400, "VALIDATION_ERROR");
     if (!Number.isFinite(averageViews) || averageViews < 0) throw new RequestError("Average views must not be negative.", 400, "VALIDATION_ERROR");
     if (!contentTypes.length) throw new RequestError("Select at least one content type.", 400, "VALIDATION_ERROR");
     if (reason.length < 30) throw new RequestError("Reason must be at least 30 characters.", 400, "VALIDATION_ERROR");
     if (body.agreement !== true) throw new RequestError("Agreement is required.", 400, "VALIDATION_ERROR");
 
-    for (const keyName of ["youtube", "instagram", "twitch", "x", "otherLink"]) {
-      if (body[keyName] && !validUrl(body[keyName])) {
-        throw new RequestError(`${keyName} must be a valid URL.`, 400, "VALIDATION_ERROR");
-      }
-    }
-
     const referenceId = `MEDIA-${now.toString(36).toUpperCase()}`;
+    const creatorLinkFields = [
+      youtubeUrl ? field("YouTube Channel Link", youtubeUrl) : null,
+      kickUrl ? field("Kick Channel Link", kickUrl) : null
+    ].filter(Boolean);
     await sendDiscordWebhook(process.env.DISCORD_MEDIA_APPLICATION_WEBHOOK_URL, {
       embeds: [
         embed("New Media Application", [
@@ -233,7 +266,7 @@ async function handleMediaApplication(req, res) {
           field("Discord Username", discordUsername, true),
           field("Age", numberText(age), true),
           field("Main Platform", mainPlatform, true),
-          field("Main Profile", profileLink),
+          ...creatorLinkFields,
           field("Followers/Subscribers", numberText(followers), true),
           field("Average Views", numberText(averageViews), true),
           field("Content Types", contentTypes.join(", ")),
@@ -241,11 +274,6 @@ async function handleMediaApplication(req, res) {
           field("Previous Minecraft Server Content", previousExperience, true),
           field("Previous Experience Details", multiline(body.previousDetails, 700)),
           field("Reason for Applying", multiline(reason, 1000)),
-          field("YouTube", text(body.youtube) || "Not provided"),
-          field("Instagram", text(body.instagram) || "Not provided"),
-          field("Twitch", text(body.twitch) || "Not provided"),
-          field("X", text(body.x) || "Not provided"),
-          field("Other Portfolio", text(body.otherLink) || "Not provided"),
           field("Additional Information", multiline(body.additionalInfo, 700)),
           field("Submitted", new Date(now).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }))
         ])
