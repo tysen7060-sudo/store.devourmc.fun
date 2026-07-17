@@ -1029,8 +1029,28 @@
     td { color: var(--muted); }
     td strong { color: var(--text); }
     tr:last-child td { border-bottom: 0; }
-    .leaderboard-table { table-layout: auto; }
+    .leaderboard-table { table-layout: fixed; }
+    .player-leaderboard-table { min-width: 760px; }
     .player-overall-table { min-width: 1180px; }
+    .team-leaderboard-table { min-width: 1040px; }
+    .player-leaderboard-table th:nth-child(1),
+    .player-leaderboard-table td:nth-child(1),
+    .team-leaderboard-table th:nth-child(1),
+    .team-leaderboard-table td:nth-child(1) { width: 100px; }
+    .player-leaderboard-table th:nth-child(2),
+    .player-leaderboard-table td:nth-child(2) { width: 260px; }
+    .team-leaderboard-table th:nth-child(2),
+    .team-leaderboard-table td:nth-child(2) { width: 210px; }
+    .team-leaderboard-table th:nth-child(3),
+    .team-leaderboard-table td:nth-child(3) { width: 240px; }
+    .team-leaderboard-table th:nth-child(4),
+    .team-leaderboard-table td:nth-child(4) { width: 180px; }
+    .player-leaderboard-table th:nth-child(n+3),
+    .player-leaderboard-table td:nth-child(n+3),
+    .team-leaderboard-table th:nth-child(n+5),
+    .team-leaderboard-table td:nth-child(n+5) { text-align: right; }
+    .player-leaderboard-table th,
+    .team-leaderboard-table th { vertical-align: middle; }
     .leaderboard-player-cell,
     .leaderboard-leader-cell,
     .leaderboard-members-cell { text-align: left; vertical-align: middle; }
@@ -1046,7 +1066,14 @@
     .leaderboard-stat-gems { color: #a78bfa; }
     .leaderboard-stat-credits { color: #fdba74; }
     .leaderboard-stat-playtime { color: #fde68a; }
-    .leaderboard-stat-overall { color: var(--neon); }
+    .leaderboard-stat-overall { color: #c084fc; }
+    .leaderboard-stat-heading {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+      width: 100%;
+    }
     .leaderboard-player,
     .leaderboard-person {
       display: flex;
@@ -1091,7 +1118,13 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      justify-content: flex-start;
       max-width: 260px;
+    }
+    .podium-team-members .leaderboard-members {
+      justify-content: center;
+      max-width: none;
+      margin-top: 12px;
     }
     .leaderboard-member {
       display: inline-grid;
@@ -1130,9 +1163,9 @@
       text-align: left;
     }
     .podium-stat {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
-      justify-content: space-between;
       gap: 12px;
       min-width: 0;
       padding: 8px 10px;
@@ -1157,6 +1190,21 @@
       font-size: .86rem;
       font-weight: 900;
       text-align: right;
+    }
+    .team-podium-leader-avatar {
+      width: 64px;
+      height: 64px;
+      display: block;
+      object-fit: cover;
+      image-rendering: pixelated;
+      border-radius: 14px;
+      margin: 0 auto 10px;
+      background: var(--deep);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .team-podium-stats {
+      margin-top: 12px;
+      text-align: left;
     }
 
     .stepper { display: inline-flex; align-items: center; gap: 8px; }
@@ -1280,6 +1328,9 @@
     }
     .leaderboard-state strong { display: block; color: var(--text); margin-bottom: 6px; }
     .leaderboard-value { font-weight: 900; color: var(--text); }
+    .leaderboard-value.leaderboard-stat-overall,
+    .podium-stat-value.leaderboard-stat-overall,
+    .leaderboard-stat-heading.leaderboard-stat-overall { color: #c084fc; }
     .rank-top-1 { color: var(--warning); }
     .rank-top-2 { color: var(--neon); }
     .rank-top-3 { color: var(--bright); }
@@ -1577,7 +1628,12 @@
       .creator-profile h3 { overflow-wrap: anywhere; }
       .podium { grid-template-columns: 1fr; }
       .podium-stats.overall-stats { grid-template-columns: 1fr; }
-      .podium-stat { align-items: flex-start; }
+      .podium-stat {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+        gap: 4px;
+      }
+      .podium-stat-value { text-align: left; }
       .player-overall-table {
         min-width: 0;
         border-collapse: separate;
@@ -3253,7 +3309,7 @@
 
     function playerStatHeader(key, fallbackLabel = "") {
       const meta = playerStatMeta(key);
-      return `${meta.emoji ? `<span aria-hidden="true">${meta.emoji}</span> ` : ""}${escapeHTML(fallbackLabel || meta.label)}`;
+      return `<span class="leaderboard-stat-heading ${key === "overall" ? "leaderboard-stat-overall" : ""}">${meta.emoji ? `<span aria-hidden="true">${meta.emoji}</span>` : ""}<span>${escapeHTML(fallbackLabel || meta.label)}</span></span>`;
     }
 
     function renderTeamLeaderboardTable(areaId, tabId, data) {
@@ -3266,7 +3322,7 @@
       }
       const statHeaders = teamStatHeaders(tabId);
       area.innerHTML = `${renderTeamPodium(data, tabId)}
-        <div class="table-wrap reveal visible"><table><thead><tr><th>Position</th><th>${TEAM_LEADERBOARD_CONFIG.nameLabel}</th><th>Leader</th><th>Members</th>${statHeaders}</tr></thead><tbody>
+        <div class="table-wrap reveal visible"><table class="leaderboard-table team-leaderboard-table"><thead><tr><th>Position</th><th>${TEAM_LEADERBOARD_CONFIG.nameLabel}</th><th>Leader</th><th>Members</th>${statHeaders}</tr></thead><tbody>
           ${data.map(entry => `<tr>
             <td><strong class="${rankClass(entry.position)}">#${entry.position}</strong></td>
             <td><strong>&#9670; ${escapeHTML(entry.displayName)}</strong></td>
@@ -3297,18 +3353,32 @@
       return `<div class="leaderboard-person"><img class="leaderboard-person-avatar" src="${escapeHTML(src)}" onerror="this.src='${fallbackAvatar()}'" alt=""><span class="leaderboard-person-name">${escapeHTML(username)}</span></div>`;
     }
 
-    function renderTeamMembers(entry) {
-      const members = Array.isArray(entry.members) ? entry.members : [];
+    function renderTeamMembers(entry, options = {}) {
+      const className = safeText(options.className);
+      const allMembers = Array.isArray(entry.members) ? entry.members : [];
+      const members = options.excludeLeader
+        ? allMembers.filter(member => !isSameLeaderboardPerson(member, entry.leader))
+        : allMembers;
       if (!members.length) {
-        const extra = Math.max(0, Number(entry.memberCount) || 0);
-        return `<div class="leaderboard-members"><span class="leaderboard-member-more">${extra ? `${extra} member${extra === 1 ? "" : "s"}` : "No members listed"}</span></div>`;
+        const extra = options.excludeLeader ? 0 : Math.max(0, Number(entry.memberCount) || 0);
+        return `<div class="leaderboard-members ${escapeHTML(className)}">${extra ? `<span class="leaderboard-member-more">${extra} member${extra === 1 ? "" : "s"}</span>` : ""}</div>`;
       }
       const preview = members.slice(0, TEAM_MEMBER_PREVIEW_LIMIT);
-      const remaining = Math.max(0, (Number(entry.memberCount) || members.length) - preview.length);
-      return `<div class="leaderboard-members">
+      const memberTotal = options.excludeLeader ? members.length : (Number(entry.memberCount) || members.length);
+      const remaining = Math.max(0, memberTotal - preview.length);
+      return `<div class="leaderboard-members ${escapeHTML(className)}">
         ${preview.map(member => `<div class="leaderboard-member" title="${escapeHTML(member.username)}"><img class="leaderboard-member-avatar" src="${escapeHTML(member.avatarUrl || fallbackAvatar())}" onerror="this.src='${fallbackAvatar()}'" alt="${escapeHTML(member.username)}"></div>`).join("")}
         ${remaining > 0 ? `<span class="leaderboard-member-more">+${remaining} more</span>` : ""}
       </div>`;
+    }
+
+    function isSameLeaderboardPerson(member, person) {
+      const memberUuid = safeText(member?.uuid).toLowerCase();
+      const personUuid = safeText(person?.uuid).toLowerCase();
+      if (memberUuid && personUuid && memberUuid === personUuid) return true;
+      const memberName = safeText(member?.username).toLowerCase();
+      const personName = safeText(person?.username).toLowerCase();
+      return Boolean(memberName && personName && memberName === personName);
     }
 
     function renderPlayerPodium(data, tabId) {
@@ -3355,9 +3425,27 @@
       const labels = ["#2", "&#9819; #1", "#3"];
       const label = TEAM_LEADERBOARD_CONFIG.tabs[tabId].valueLabel;
       return `<div class="podium">${top.map((item, i) => `<div class="podium-card ${classes[i]}">
-        <div class="card-icon" style="margin-inline:auto">&#9670;</div>
-        <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3><p>${escapeHTML(label)}: ${escapeHTML(teamMetricValue(item, tabId))}</p>
+        <img class="team-podium-leader-avatar" src="${escapeHTML(teamLeaderAvatar(item, 64))}" onerror="this.src='${fallbackAvatar()}'" alt="${escapeHTML(item.leader?.username || "Team leader")}">
+        <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3>
+        <div class="podium-stats team-podium-stats">
+          ${tabId === "overall"
+            ? [["Kills", item.formattedKills], ["Balance", item.formattedBalance], ["Overall", item.formattedOverallScore]].map(([statLabel, statValue]) => renderTeamPodiumStat(statLabel, statValue)).join("")
+            : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
+        </div>
+        <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
       </div>`).join("")}</div>`;
+    }
+
+    function renderTeamPodiumStat(label, value) {
+      return `<div class="podium-stat">
+        <span class="podium-stat-label">${escapeHTML(label)}</span>
+        <span class="podium-stat-value">${escapeHTML(value)}</span>
+      </div>`;
+    }
+
+    function teamLeaderAvatar(entry, size) {
+      const leader = entry?.leader || {};
+      return safeText(leader.avatarUrl) || (leader.uuid ? avatarUrl(leader.uuid, size) : fallbackAvatar());
     }
 
     function leaderboardAvatar(entry, size) {
