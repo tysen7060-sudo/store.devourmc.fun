@@ -1036,6 +1036,17 @@
     .leaderboard-members-cell { text-align: left; vertical-align: middle; }
     .leaderboard-player-cell { min-width: 220px; }
     .leaderboard-value { text-align: right; }
+    .leaderboard-stat-value {
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .leaderboard-stat-kills { color: #67e8f9; }
+    .leaderboard-stat-money { color: #86efac; }
+    .leaderboard-stat-deaths { color: #fb7185; }
+    .leaderboard-stat-gems { color: #a78bfa; }
+    .leaderboard-stat-credits { color: #fdba74; }
+    .leaderboard-stat-playtime { color: #fde68a; }
+    .leaderboard-stat-overall { color: var(--neon); }
     .leaderboard-player,
     .leaderboard-person {
       display: flex;
@@ -1095,15 +1106,46 @@
     .leaderboard-member-more { color: var(--muted); font-weight: 900; }
     .podium-stats {
       display: grid;
-      gap: 4px;
-      margin-top: 8px;
+      gap: 8px;
+      margin-top: 12px;
       color: var(--muted);
-      font-size: .9rem;
+      font-size: .84rem;
       line-height: 1.35;
     }
     .podium-stats.overall-stats {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 10px 12px;
       text-align: left;
+    }
+    .podium-stat {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      background: rgba(0,0,0,.16);
+    }
+    .podium-stat-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .podium-stat-value {
+      min-width: max-content;
+      font-size: .86rem;
+      font-weight: 900;
+      text-align: right;
     }
 
     .stepper { display: inline-flex; align-items: center; gap: 8px; }
@@ -1524,6 +1566,7 @@
       .creator-profile h3 { overflow-wrap: anywhere; }
       .podium { grid-template-columns: 1fr; }
       .podium-stats.overall-stats { grid-template-columns: 1fr; }
+      .podium-stat { align-items: flex-start; }
       .player-overall-table {
         min-width: 0;
         border-collapse: separate;
@@ -3157,8 +3200,8 @@
         return;
       }
       const statHeaders = tabId === "overall"
-        ? "<th>Kills</th><th>Money</th><th>Deaths</th><th>Gems</th><th>Credits</th><th>Playtime</th><th>Overall</th>"
-        : `<th>${tab.valueLabel}</th>`;
+        ? ["kills", "money", "deaths", "gems", "credits", "playtime", "overall"].map(key => `<th>${playerStatHeader(key)}</th>`).join("")
+        : `<th>${playerStatHeader(tabId, tab.valueLabel)}</th>`;
       area.innerHTML = `${renderPlayerPodium(data, tabId)}
         <div class="table-wrap reveal visible"><table class="leaderboard-table player-leaderboard-table ${tabId === "overall" ? "player-overall-table" : ""}"><thead><tr><th>Position</th><th>${LEADERBOARD_CONFIG.nameLabel}</th>${statHeaders}</tr></thead><tbody>
           ${data.map(entry => `<tr>
@@ -3171,16 +3214,17 @@
 
     function playerStatCells(entry, tabId) {
       if (tabId === "overall") {
-        return `<td class="leaderboard-value" data-label="Kills">${escapeHTML(entry.kills)}</td>
-          <td class="leaderboard-value" data-label="Money">${escapeHTML(entry.money)}</td>
-          <td class="leaderboard-value" data-label="Deaths">${escapeHTML(entry.deaths)}</td>
-          <td class="leaderboard-value" data-label="Gems">${escapeHTML(entry.gems)}</td>
-          <td class="leaderboard-value" data-label="Credits">${escapeHTML(entry.credits)}</td>
-          <td class="leaderboard-value" data-label="Playtime">${escapeHTML(entry.playtime)}</td>
-          <td class="leaderboard-value" data-label="Overall">${escapeHTML(entry.overall)}</td>`;
+        return ["kills", "money", "deaths", "gems", "credits", "playtime", "overall"]
+          .map(key => `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-${key}" data-label="${escapeHTML(playerStatMeta(key).label)}">${escapeHTML(entry[key])}</td>`)
+          .join("");
       }
       const label = LEADERBOARD_CONFIG.tabs[tabId]?.valueLabel || "Value";
-      return `<td class="leaderboard-value" data-label="${escapeHTML(label)}">${escapeHTML(entry.value)}</td>`;
+      return `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-${escapeHTML(tabId)}" data-label="${escapeHTML(label)}">${escapeHTML(entry.value)}</td>`;
+    }
+
+    function playerStatHeader(key, fallbackLabel = "") {
+      const meta = playerStatMeta(key);
+      return `${meta.emoji ? `<span aria-hidden="true">${meta.emoji}</span> ` : ""}${escapeHTML(fallbackLabel || meta.label)}`;
     }
 
     function renderTeamLeaderboardTable(areaId, tabId, data) {
@@ -3247,17 +3291,33 @@
         <img src="${leaderboardAvatar(item, 72)}" onerror="this.src='${fallbackAvatar()}'" alt="">
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.name)}</h3>
         ${tabId === "overall" ? `<div class="podium-stats overall-stats">
-          <span>Kills: ${escapeHTML(item.kills)}</span>
-          <span>Money: ${escapeHTML(item.money)}</span>
-          <span>Deaths: ${escapeHTML(item.deaths)}</span>
-          <span>Gems: ${escapeHTML(item.gems)}</span>
-          <span>Credits: ${escapeHTML(item.credits)}</span>
-          <span>Playtime: ${escapeHTML(item.playtime)}</span>
-          <span>Overall: ${escapeHTML(item.overall)}</span>
+          ${["kills", "money", "deaths", "gems", "credits", "playtime", "overall"].map(key => renderPlayerPodiumStat(key, item[key])).join("")}
         </div>` : `<div class="podium-stats">
-          <span>${escapeHTML(label)}: ${escapeHTML(item.value)}</span>
+          ${renderPlayerPodiumStat(tabId, item.value, label)}
         </div>`}
       </div>`).join("")}</div>`;
+    }
+
+    function playerStatMeta(key) {
+      const meta = {
+        kills: { label: "Kills", emoji: "&#128481;" },
+        money: { label: "Money", emoji: "$" },
+        deaths: { label: "Deaths", emoji: "&#128128;" },
+        gems: { label: "Gems", emoji: "&#9732;" },
+        credits: { label: "Credits", emoji: "&#9728;" },
+        playtime: { label: "Playtime", emoji: "&#8986;" },
+        overall: { label: "Overall", emoji: "&#128081;" }
+      };
+      return meta[key] || { label: key, emoji: "" };
+    }
+
+    function renderPlayerPodiumStat(key, value, fallbackLabel = "") {
+      const meta = playerStatMeta(key);
+      const label = fallbackLabel || meta.label;
+      return `<div class="podium-stat">
+        <span class="podium-stat-label"><span aria-hidden="true">${meta.emoji}</span><span>${escapeHTML(label)}</span></span>
+        <span class="podium-stat-value leaderboard-stat-${escapeHTML(key)}">${escapeHTML(value)}</span>
+      </div>`;
     }
 
     function renderTeamPodium(data, tabId) {
