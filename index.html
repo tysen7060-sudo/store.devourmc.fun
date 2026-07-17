@@ -1067,6 +1067,8 @@
     .leaderboard-stat-credits { color: #fdba74; }
     .leaderboard-stat-playtime { color: #fde68a; }
     .leaderboard-stat-overall { color: #c084fc; }
+    .leaderboard-stat-balance { color: #86efac; }
+    .leaderboard-stat-members { color: #a78bfa; }
     .leaderboard-stat-heading {
       display: inline-flex;
       align-items: center;
@@ -1328,8 +1330,41 @@
     }
     .leaderboard-state strong { display: block; color: var(--text); margin-bottom: 6px; }
     .leaderboard-value { font-weight: 900; color: var(--text); }
+    .leaderboard-value.leaderboard-stat-kills,
+    .podium-stat-value.leaderboard-stat-kills,
+    .podium-stat-label.leaderboard-stat-kills,
+    .leaderboard-stat-heading.leaderboard-stat-kills { color: #67e8f9; }
+    .leaderboard-value.leaderboard-stat-money,
+    .leaderboard-value.leaderboard-stat-balance,
+    .podium-stat-value.leaderboard-stat-money,
+    .podium-stat-value.leaderboard-stat-balance,
+    .podium-stat-label.leaderboard-stat-money,
+    .podium-stat-label.leaderboard-stat-balance,
+    .leaderboard-stat-heading.leaderboard-stat-money,
+    .leaderboard-stat-heading.leaderboard-stat-balance { color: #86efac; }
+    .leaderboard-value.leaderboard-stat-deaths,
+    .podium-stat-value.leaderboard-stat-deaths,
+    .podium-stat-label.leaderboard-stat-deaths,
+    .leaderboard-stat-heading.leaderboard-stat-deaths { color: #fb7185; }
+    .leaderboard-value.leaderboard-stat-gems,
+    .leaderboard-value.leaderboard-stat-members,
+    .podium-stat-value.leaderboard-stat-gems,
+    .podium-stat-value.leaderboard-stat-members,
+    .podium-stat-label.leaderboard-stat-gems,
+    .podium-stat-label.leaderboard-stat-members,
+    .leaderboard-stat-heading.leaderboard-stat-gems,
+    .leaderboard-stat-heading.leaderboard-stat-members { color: #a78bfa; }
+    .leaderboard-value.leaderboard-stat-credits,
+    .podium-stat-value.leaderboard-stat-credits,
+    .podium-stat-label.leaderboard-stat-credits,
+    .leaderboard-stat-heading.leaderboard-stat-credits { color: #fdba74; }
+    .leaderboard-value.leaderboard-stat-playtime,
+    .podium-stat-value.leaderboard-stat-playtime,
+    .podium-stat-label.leaderboard-stat-playtime,
+    .leaderboard-stat-heading.leaderboard-stat-playtime { color: #fde68a; }
     .leaderboard-value.leaderboard-stat-overall,
     .podium-stat-value.leaderboard-stat-overall,
+    .podium-stat-label.leaderboard-stat-overall,
     .leaderboard-stat-heading.leaderboard-stat-overall { color: #c084fc; }
     .rank-top-1 { color: var(--warning); }
     .rank-top-2 { color: var(--neon); }
@@ -3286,7 +3321,7 @@
       }
       const statHeaders = tabId === "overall"
         ? ["kills", "money", "deaths", "gems", "credits", "playtime", "overall"].map(key => `<th>${playerStatHeader(key)}</th>`).join("")
-        : `<th>${playerStatHeader(tabId, tab.valueLabel)}</th>`;
+        : `<th>${playerStatHeader(tabId, tab.valueLabel, true)}</th>`;
       area.innerHTML = `${renderPlayerPodium(data, tabId)}
         <div class="table-wrap reveal visible"><table class="leaderboard-table player-leaderboard-table ${tabId === "overall" ? "player-overall-table" : ""}"><thead><tr><th>Position</th><th>${LEADERBOARD_CONFIG.nameLabel}</th>${statHeaders}</tr></thead><tbody>
           ${data.map(entry => `<tr>
@@ -3307,9 +3342,10 @@
       return `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-${escapeHTML(tabId)}" data-label="${escapeHTML(label)}">${escapeHTML(entry.value)}</td>`;
     }
 
-    function playerStatHeader(key, fallbackLabel = "") {
+    function playerStatHeader(key, fallbackLabel = "", colorize = false) {
       const meta = playerStatMeta(key);
-      return `<span class="leaderboard-stat-heading ${key === "overall" ? "leaderboard-stat-overall" : ""}">${meta.emoji ? `<span aria-hidden="true">${meta.emoji}</span>` : ""}<span>${escapeHTML(fallbackLabel || meta.label)}</span></span>`;
+      const colorClass = colorize || key === "overall" ? `leaderboard-stat-${key}` : "";
+      return `<span class="leaderboard-stat-heading ${escapeHTML(colorClass)}">${meta.emoji ? `<span aria-hidden="true">${meta.emoji}</span>` : ""}<span>${escapeHTML(fallbackLabel || meta.label)}</span></span>`;
     }
 
     function renderTeamLeaderboardTable(areaId, tabId, data) {
@@ -3327,7 +3363,7 @@
             <td><strong class="${rankClass(entry.position)}">#${entry.position}</strong></td>
             <td><strong>&#9670; ${escapeHTML(entry.displayName)}</strong></td>
             <td class="leaderboard-leader-cell">${renderPerson(entry.leader, "Unknown Leader")}</td>
-            <td class="leaderboard-members-cell">${renderTeamMembers(entry)}</td>
+            <td class="leaderboard-members-cell">${renderTeamMembers(entry, { excludeLeader: true })}</td>
             ${teamStatCells(entry, tabId)}
           </tr>`).join("")}
         </tbody></table></div>`;
@@ -3335,16 +3371,26 @@
 
     function teamStatHeaders(tabId) {
       if (tabId === "overall") return "<th>Kills</th><th>Balance</th><th>Overall</th>";
-      if (tabId === "kills") return "<th>Kills</th>";
-      if (tabId === "balance") return "<th>Balance</th>";
-      return "<th>Member Count</th>";
+      if (tabId === "kills") return `<th>${teamStatHeader("kills", "Kills")}</th>`;
+      if (tabId === "balance") return `<th>${teamStatHeader("balance", "Balance")}</th>`;
+      return `<th>${teamStatHeader("members", "Members")}</th>`;
     }
 
     function teamStatCells(entry, tabId) {
       if (tabId === "overall") {
         return `<td class="leaderboard-value">${escapeHTML(entry.formattedKills)}</td><td class="leaderboard-value">${escapeHTML(entry.formattedBalance)}</td><td class="leaderboard-value">${escapeHTML(entry.formattedOverallScore)}</td>`;
       }
-      return `<td class="leaderboard-value">${escapeHTML(teamMetricValue(entry, tabId))}</td>`;
+      return `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-${escapeHTML(teamStatClass(tabId))}">${escapeHTML(teamMetricValue(entry, tabId))}</td>`;
+    }
+
+    function teamStatHeader(key, label) {
+      return `<span class="leaderboard-stat-heading leaderboard-stat-${escapeHTML(teamStatClass(key))}"><span>${escapeHTML(label)}</span></span>`;
+    }
+
+    function teamStatClass(tabId) {
+      if (tabId === "balance") return "balance";
+      if (tabId === "members") return "members";
+      return tabId;
     }
 
     function renderPerson(person, fallbackName) {
@@ -3392,7 +3438,7 @@
         ${tabId === "overall" ? `<div class="podium-stats overall-stats">
           ${["kills", "money", "deaths", "gems", "credits", "playtime", "overall"].map(key => renderPlayerPodiumStat(key, item[key])).join("")}
         </div>` : `<div class="podium-stats">
-          ${renderPlayerPodiumStat(tabId, item.value, label)}
+          ${renderPlayerPodiumStat(tabId, item.value, label, true)}
         </div>`}
       </div>`).join("")}</div>`;
     }
@@ -3410,11 +3456,12 @@
       return meta[key] || { label: key, emoji: "" };
     }
 
-    function renderPlayerPodiumStat(key, value, fallbackLabel = "") {
+    function renderPlayerPodiumStat(key, value, fallbackLabel = "", colorizeLabel = false) {
       const meta = playerStatMeta(key);
       const label = fallbackLabel || meta.label;
+      const labelClass = colorizeLabel ? ` leaderboard-stat-${escapeHTML(key)}` : "";
       return `<div class="podium-stat">
-        <span class="podium-stat-label"><span aria-hidden="true">${meta.emoji}</span><span>${escapeHTML(label)}</span></span>
+        <span class="podium-stat-label${labelClass}"><span aria-hidden="true">${meta.emoji}</span><span>${escapeHTML(label)}</span></span>
         <span class="podium-stat-value leaderboard-stat-${escapeHTML(key)}">${escapeHTML(value)}</span>
       </div>`;
     }
@@ -3430,16 +3477,17 @@
         <div class="podium-stats team-podium-stats">
           ${tabId === "overall"
             ? [["Kills", item.formattedKills], ["Balance", item.formattedBalance], ["Overall", item.formattedOverallScore]].map(([statLabel, statValue]) => renderTeamPodiumStat(statLabel, statValue)).join("")
-            : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
+            : renderTeamPodiumStat(label, teamMetricValue(item, tabId), teamStatClass(tabId))}
         </div>
         <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
       </div>`).join("")}</div>`;
     }
 
-    function renderTeamPodiumStat(label, value) {
+    function renderTeamPodiumStat(label, value, statClass = "") {
+      const colorClass = safeText(statClass);
       return `<div class="podium-stat">
-        <span class="podium-stat-label">${escapeHTML(label)}</span>
-        <span class="podium-stat-value">${escapeHTML(value)}</span>
+        <span class="podium-stat-label ${colorClass ? `leaderboard-stat-${escapeHTML(colorClass)}` : ""}">${escapeHTML(label)}</span>
+        <span class="podium-stat-value ${colorClass ? `leaderboard-stat-${escapeHTML(colorClass)}` : ""}">${escapeHTML(value)}</span>
       </div>`;
     }
 
