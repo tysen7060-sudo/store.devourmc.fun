@@ -710,6 +710,83 @@
       background: linear-gradient(135deg, var(--primary), var(--bright));
       box-shadow: var(--glow);
     }
+    .page-accent {
+      --page-accent: var(--primary);
+      --page-accent-2: var(--bright);
+      --page-accent-border: rgba(139,92,246,.24);
+      --page-accent-bg: rgba(139,92,246,.045);
+      --page-accent-glow: rgba(139,92,246,.12);
+    }
+    .page-accent .section-title {
+      text-shadow: 0 0 18px var(--page-accent-glow);
+    }
+    .page-accent .card,
+    .page-accent .table-wrap,
+    .page-accent .leaderboard-state {
+      border-color: color-mix(in srgb, var(--page-accent), transparent 78%);
+      background:
+        radial-gradient(circle at top right, var(--page-accent-bg), transparent 26rem),
+        linear-gradient(180deg, rgba(255,255,255,.072), rgba(255,255,255,.034));
+    }
+    .page-accent .card:hover {
+      border-color: color-mix(in srgb, var(--page-accent), transparent 62%);
+      box-shadow: 0 0 26px var(--page-accent-glow), 0 22px 55px rgba(0,0,0,.28);
+    }
+    .page-accent .badge,
+    .page-accent .platform-badge,
+    .page-accent .profile-role {
+      color: var(--page-accent);
+      border-color: var(--page-accent-border);
+      background: var(--page-accent-bg);
+    }
+    .page-accent .filter-button.active,
+    .page-accent .tab.active {
+      border-color: color-mix(in srgb, var(--page-accent), transparent 48%);
+      background: linear-gradient(135deg, var(--page-accent), var(--page-accent-2));
+      box-shadow: 0 0 20px var(--page-accent-glow);
+    }
+    .page-accent th {
+      background: color-mix(in srgb, var(--page-accent), transparent 88%);
+    }
+    .page-accent .card-icon {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--page-accent), #12071f 35%), var(--page-accent-2));
+      box-shadow: 0 0 22px var(--page-accent-glow);
+    }
+    .vote-accent {
+      --page-accent: #86efac;
+      --page-accent-2: #4ade80;
+      --page-accent-border: rgba(134, 239, 172, 0.28);
+      --page-accent-bg: rgba(74, 222, 128, 0.05);
+      --page-accent-glow: rgba(74, 222, 128, 0.14);
+    }
+    .media-accent {
+      --page-accent: #f0abfc;
+      --page-accent-2: #c084fc;
+      --page-accent-border: rgba(240, 171, 252, 0.24);
+      --page-accent-bg: rgba(216, 180, 254, 0.045);
+      --page-accent-glow: rgba(216, 180, 254, 0.12);
+    }
+    .staff-accent {
+      --page-accent: #93c5fd;
+      --page-accent-2: #818cf8;
+      --page-accent-border: rgba(147, 197, 253, 0.24);
+      --page-accent-bg: rgba(96, 165, 250, 0.045);
+      --page-accent-glow: rgba(96, 165, 250, 0.12);
+    }
+    .leaderboard-accent {
+      --page-accent: #c084fc;
+      --page-accent-2: #8b5cf6;
+      --page-accent-border: rgba(192, 132, 252, 0.25);
+      --page-accent-bg: rgba(139, 92, 246, 0.045);
+      --page-accent-glow: rgba(192, 132, 252, 0.12);
+    }
+    .team-accent {
+      --page-accent: #7dd3fc;
+      --page-accent-2: #a78bfa;
+      --page-accent-border: rgba(125, 211, 252, 0.24);
+      --page-accent-bg: rgba(14, 165, 233, 0.045);
+      --page-accent-glow: rgba(125, 211, 252, 0.11);
+    }
     .media-featured {
       display: grid;
       grid-template-columns: minmax(0, 1.08fr) minmax(280px, .92fr);
@@ -3305,7 +3382,7 @@
 
     function renderLeaderboards() {
       document.getElementById("page-leaderboards").innerHTML = pageShell("Leaderboards", "View the strongest players competing on DevourMC.", `
-        <div class="leaderboard-panel">
+        <div class="page-accent leaderboard-accent leaderboard-panel">
           <div class="tabs" id="leaderboardSubTabs" role="tablist" aria-label="Player leaderboard category"></div>
           <div class="leaderboard-toolbar">
             <div class="leaderboard-meta" id="leaderboardMeta">Last updated: Not loaded yet</div>
@@ -3343,6 +3420,7 @@
 
     function renderTeams() {
       document.getElementById("page-teams").innerHTML = pageShell("Team Leaderboards", "Discover the strongest and most successful teams competing on DevourMC.", `
+        <div class="page-accent team-accent">
         <div class="tabs" role="tablist" aria-label="Team leaderboard tabs">
           ${Object.entries(TEAM_LEADERBOARD_CONFIG.tabs).map(([id, config]) => `<button class="tab" data-team-tab="${id}" type="button">${config.label}</button>`).join("")}
         </div>
@@ -3352,7 +3430,8 @@
             <button class="btn btn-small" data-team-refresh type="button">Refresh</button>
           </div>
         </div>
-        <div id="teamLeaderboardArea"></div>`);
+        <div id="teamLeaderboardArea"></div>
+        </div>`);
       loadTeamPageLeaderboard();
     }
 
@@ -3875,6 +3954,7 @@
 
     function renderVote() {
       document.getElementById("page-vote").innerHTML = pageShell("Vote for DevourMC", "Support DevourMC by voting on every available Minecraft server list and earn valuable in-game rewards.", `
+        <div class="page-accent vote-accent">
         <div class="vote-hero">
           <div class="announcement glass reveal"><strong>Vote for DevourMC and help the community grow.</strong><span>Voting improves server visibility on public Minecraft lists. Rewards are granted only after the voting website notifies the Minecraft server through the configured voting system.</span></div>
           <div class="card reveal vote-helper">
@@ -3893,7 +3973,8 @@
         <div class="grid grid-3 reveal">${votingRewards.map(reward => `<div class="card"><div class="card-icon">✓</div><h3>${escapeHTML(reward.title)}</h3><p>${escapeHTML(reward.description)}</p></div>`).join("")}</div>
         <h2 class="section-title reveal" style="margin-top:34px">Vote Sites</h2>
         <div class="grid grid-3" id="voteSites"></div>
-        <div class="card reveal" style="margin-top:20px"><span class="badge">Live vote stats not configured</span><h3>Voting Integration</h3><p>This static website only links to external voting pages. Real recent voters, top voters, cooldowns, and player vote status require a secure backend connected to VotingPlugin data or another supported server-side source.</p></div>`);
+        <div class="card reveal" style="margin-top:20px"><span class="badge">Live vote stats not configured</span><h3>Voting Integration</h3><p>This static website only links to external voting pages. Real recent voters, top voters, cooldowns, and player vote status require a secure backend connected to VotingPlugin data or another supported server-side source.</p></div>
+        </div>`);
       renderVoteSites();
     }
 
@@ -3962,6 +4043,7 @@
       const featured = activeCreators.filter(creator => creator.featured);
       const filters = ["all", ...platforms].map(platform => `<button class="btn btn-small filter-button ${activeCreatorPlatform === platform ? "active" : ""}" data-creator-filter="${escapeHTML(platform)}" type="button">${escapeHTML(platform === "all" ? "All Creators" : creatorPlatformLabel(platform))}</button>`).join("");
       document.getElementById("page-media").innerHTML = pageShell("DevourMC Content Creators", "Meet the creators who record, stream, and share content from the DevourMC community.", `
+        <div class="page-accent media-accent">
         ${featured.length ? `<section class="reveal"><h2 class="section-title">Featured Creators</h2><div class="profile-grid">${featured.map(creator => renderCreatorCard(creator, true)).join("")}</div></section>` : ""}
         ${filters ? `<div class="filter-row reveal" aria-label="Creator platform filters">${filters}</div>` : ""}
         <div id="creatorGrid">${visible.length ? `<div class="grid grid-3">${visible.map(creator => renderCreatorCard(creator)).join("")}</div>` : activeCreators.length ? "" : `<div class="empty-state reveal">Content creator profiles will be added soon.</div>`}</div>
@@ -3971,6 +4053,7 @@
           <p>Do you create Minecraft videos, streams, shorts, or community posts? Join the DevourMC community, share your content, and apply for creator opportunities when applications are available.</p>
           <div class="hero-actions"><a class="btn btn-primary btn-small" href="#media-apply">Apply as a Creator</a></div>
         </section>
+        </div>
       `, "DevourMC");
     }
 
@@ -4135,7 +4218,7 @@
       const content = groups.length
         ? groups.map(group => `<section class="staff-group"><h2 class="section-title reveal">${escapeHTML(roleGroupLabel(group))}</h2><div class="grid grid-3">${active.filter(member => (member.roleGroup || "staff") === group).map(renderStaffCard).join("")}</div></section>`).join("")
         : `<div class="empty-state reveal">Staff information will be added soon.</div>`;
-      document.getElementById("page-staff").innerHTML = pageShell("Meet the DevourMC Team", "The people working behind the scenes to manage, improve, and support the DevourMC community.", content, "DevourMC");
+      document.getElementById("page-staff").innerHTML = pageShell("Meet the DevourMC Team", "The people working behind the scenes to manage, improve, and support the DevourMC community.", `<div class="page-accent staff-accent">${content}</div>`, "DevourMC");
     }
 
     function renderOwnerCard(owner) {
