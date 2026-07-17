@@ -25,7 +25,10 @@ const MAX_DELIVERED_SESSIONS = 500;
 const VALID_ABANDONED_ITEM_TYPES = new Set(["rank", "crate", "credits"]);
 const DISCORD_TIMEOUT_MS = 8 * 1000;
 const ANNOUNCEMENT_CACHE_TTL_MS = 120 * 1000;
+const DISCORD_GUILD_META_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_ROLE_COLOR = "#9b8cff";
 let announcementCache = { expiresAt: 0, data: null };
+let guildMetaCache = { expiresAt: 0, roles: new Map(), channels: new Map() };
 
 function clientKey(req) {
   return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
@@ -73,6 +76,169 @@ function imageAttachments(message) {
       filename: attachment.filename || "Announcement image"
     }))
     .slice(0, 2);
+}
+
+function normalizedEmbeds(message) {
+  const embeds = Array.isArray(message.embeds) ? message.embeds : [];
+  return embeds
+    .slice(0, 2)
+    .map(item => ({
+      title: text(item.title, 180),
+      description: multiline(item.description, 700),
+      image: text(item.image?.url || item.thumbnail?.url, 500)
+    }))
+    .filter(item => item.title || item.description || item.image);
+}
+
+function roleColorHex(color) {
+  const number = Number(color);
+  if (!Number.isFinite(number) || number <= 0) return DEFAULT_ROLE_COLOR;
+  return `#${number.toString(16).padStart(6, "0").slice(-6)}`;
+}
+
+function discordAvatarUrl(user, size = 64) {
+  const id = String(user?.id || "");
+  const avatar = String(user?.avatar || "");
+  if (!/^\d{16,25}$/.test(id) || !avatar) return "";
+  const ext = avatar.startsWith("a_") ? "gif" : "png";
+  return `https://cdn.discordapp.com/avatars/${encodeURIComponent(id)}/${encodeURIComponent(avatar)}.${ext}?size=${size}`;
+}
+
+function discordDisplayName(author, member) {
+  return text(member?.nick || member?.global_name || author?.global_name || author?.username, 120) || "DevourMC Staff";
+}
+
+function normalizeDiscordAuthor(message) {
+  const author = message?.author || {};
+  return {
+    id: text(author.id, 40),
+    displayName: discordDisplayName(author, message?.member),
+    username: text(author.username, 80),
+    avatarUrl: discordAvatarUrl(author, 80),
+    bot: Boolean(author.bot),
+    webhook: Boolean(message?.webhook_id)
+  };
+}
+
+async function discordApiGet(token, path) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS);
+  try {
+    const response = await fetch(`https://discord.com/api/v10${path}`, {
+      headers: { Authorization: `Bot ${token}` },
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`Discord status ${response.status}`);
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getGuildMeta(token, guildId) {
+  if (!/^\d{16,25}$/.test(String(guildId || ""))) {
+    return { roles: new Map(), channels: new Map() };
+  }
+  if (guildMetaCache.expiresAt > Date.now()) return guildMetaCache;
+
+  const [rolesResult, channelsResult] = await Promise.allSettled([
+    discordApiGet(token, `/guilds/${encodeURIComponent(guildId)}/roles`),
+    discordApiGet(token, `/guilds/${encodeURIComponent(guildId)}/channels`)
+  ]);
+
+  const roles = new Map();
+  if (rolesResult.status === "fulfilled" && Array.isArray(rolesResult.value)) {
+    for (const role of rolesResult.value) {
+      if (!role?.id) continue;
+      roles.set(String(role.id), {
+        id: String(role.id),
+        name: text(role.name, 100) || "Role",
+        color: roleColorHex(role.color)
+      });
+    }
+  }
+
+  const channels = new Map();
+  if (channelsResult.status === "fulfilled" && Array.isArray(channelsResult.value)) {
+    for (const channel of channelsResult.value) {
+      if (!channel?.id) continue;
+      channels.set(String(channel.id), {
+        id: String(channel.id),
+        name: text(channel.name, 100) || "channel"
+      });
+    }
+  }
+
+  guildMetaCache = {
+    expiresAt: Date.now() + DISCORD_GUILD_META_CACHE_TTL_MS,
+    roles,
+    channels
+  };
+  return guildMetaCache;
+}
+
+function normalizeUserMention(user) {
+  return {
+    id: text(user?.id, 40),
+    displayName: text(user?.member?.nick || user?.global_name || user?.username, 120) || "User"
+  };
+}
+
+function mentionedRoleIds(content, message) {
+  const ids = new Set(Array.isArray(message?.mention_roles) ? message.mention_roles.map(String) : []);
+  String(content || "").replace(/<@&(\d{16,25})>/g, (_, id) => {
+    ids.add(id);
+    return "";
+  });
+  return [...ids];
+}
+
+function mentionedChannels(content, message, guildMeta) {
+  const resolved = new Map();
+  const channels = Array.isArray(message?.mention_channels) ? message.mention_channels : [];
+  for (const channel of channels) {
+    if (!channel?.id) continue;
+    resolved.set(String(channel.id), {
+      id: String(channel.id),
+      name: text(channel.name, 100) || "channel"
+    });
+  }
+  String(content || "").replace(/<#(\d{16,25})>/g, (_, id) => {
+    if (!resolved.has(id)) {
+      resolved.set(id, guildMeta.channels.get(id) || { id, name: "channel" });
+    }
+    return "";
+  });
+  return [...resolved.values()];
+}
+
+function normalizeAnnouncement(message, channelId, guildId, guildMeta) {
+  const content = cleanMessage(message.content);
+  const roleMentions = mentionedRoleIds(content, message).map(id => guildMeta.roles.get(id) || {
+    id,
+    name: "Role",
+    color: DEFAULT_ROLE_COLOR
+  });
+  const userMentions = (Array.isArray(message.mentions) ? message.mentions : [])
+    .map(normalizeUserMention)
+    .filter(user => user.id);
+  const channelMentions = mentionedChannels(content, message, guildMeta);
+  const embeds = normalizedEmbeds(message);
+
+  return {
+    id: message.id,
+    content,
+    timestamp: message.timestamp,
+    createdAt: message.timestamp,
+    author: normalizeDiscordAuthor(message),
+    pinned: Boolean(message.pinned),
+    url: guildId ? `https://discord.com/channels/${guildId}/${channelId}/${message.id}` : "",
+    attachments: imageAttachments(message),
+    embeds,
+    roleMentions,
+    userMentions,
+    channelMentions
+  };
 }
 
 function escapeDiscordMarkdown(value, max = 1000) {
@@ -180,28 +346,14 @@ async function handleAnnouncements(req, res) {
     }
 
     const limit = Math.min(Math.max(Number.parseInt(String(req.query?.limit || "5"), 10) || 5, 1), 5);
-    const response = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages?limit=${limit}`, {
-      headers: { Authorization: `Bot ${token}` }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Discord status ${response.status}`);
-    }
-
-    const messages = await response.json();
+    const guildId = process.env.DISCORD_GUILD_ID || "";
+    const [messages, guildMeta] = await Promise.all([
+      discordApiGet(token, `/channels/${encodeURIComponent(channelId)}/messages?limit=${limit}`),
+      getGuildMeta(token, guildId)
+    ]);
     const data = (Array.isArray(messages) ? messages : [])
-      .filter(message => cleanMessage(message.content) || imageAttachments(message).length)
-      .map(message => ({
-        id: message.id,
-        content: cleanMessage(message.content),
-        author: message.author?.username || "DevourMC",
-        createdAt: message.timestamp,
-        pinned: Boolean(message.pinned),
-        url: process.env.DISCORD_GUILD_ID
-          ? `https://discord.com/channels/${process.env.DISCORD_GUILD_ID}/${channelId}/${message.id}`
-          : "",
-        attachments: imageAttachments(message)
-      }));
+      .filter(message => cleanMessage(message.content) || imageAttachments(message).length || normalizedEmbeds(message).length)
+      .map(message => normalizeAnnouncement(message, channelId, guildId, guildMeta));
 
     announcementCache = { expiresAt: Date.now() + ANNOUNCEMENT_CACHE_TTL_MS, data };
     res.status(200).json({ success: true, data, cached: false });

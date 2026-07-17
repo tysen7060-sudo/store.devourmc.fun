@@ -616,6 +616,88 @@
     .command-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .command-list code { padding: 5px 8px; border-radius: 9px; background: rgba(0,0,0,.2); color: var(--text); border: 1px solid rgba(255,255,255,.08); }
 
+    .crate-card {
+      --crate-primary: var(--primary);
+      --crate-glow: rgba(168,85,247,.28);
+      --crate-soft: rgba(168,85,247,.12);
+      display: grid;
+      gap: 14px;
+      border-color: color-mix(in srgb, var(--crate-primary), transparent 58%);
+      box-shadow: 0 18px 45px rgba(0,0,0,.22), 0 0 34px color-mix(in srgb, var(--crate-glow), transparent 30%);
+    }
+    .crate-card::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      background:
+        radial-gradient(circle at top right, var(--crate-soft), transparent 36%),
+        linear-gradient(180deg, color-mix(in srgb, var(--crate-primary), transparent 94%), transparent 48%);
+      pointer-events: none;
+    }
+    .crate-card:hover {
+      border-color: color-mix(in srgb, var(--crate-primary), transparent 30%);
+      box-shadow: 0 0 38px var(--crate-glow), 0 22px 55px rgba(0,0,0,.3);
+    }
+    .crate-card .card-icon {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--crate-primary), #12071f 28%), var(--crate-primary));
+      box-shadow: 0 0 26px var(--crate-glow);
+    }
+    .crate-card h3,
+    .crate-card .price,
+    .crate-card strong span {
+      color: var(--crate-primary);
+    }
+    .crate-card .badge {
+      color: var(--crate-primary);
+      border-color: color-mix(in srgb, var(--crate-primary), transparent 56%);
+      background: color-mix(in srgb, var(--crate-primary), transparent 88%);
+    }
+    .crate-card .btn-primary,
+    .preview-card .crate-preview-action {
+      border-color: color-mix(in srgb, var(--crate-primary, var(--preview-accent)), transparent 46%);
+      background: linear-gradient(135deg, var(--crate-primary, var(--preview-accent)), color-mix(in srgb, var(--crate-primary, var(--preview-accent)), #fff 14%));
+      box-shadow: 0 0 22px var(--crate-glow, color-mix(in srgb, var(--preview-accent), transparent 66%));
+    }
+    .crate-card .btn:not(.btn-primary) {
+      color: var(--crate-primary);
+      border-color: color-mix(in srgb, var(--crate-primary), transparent 62%);
+      background: color-mix(in srgb, var(--crate-primary), transparent 90%);
+    }
+    .crate-card .stepper button {
+      color: var(--crate-primary);
+      border-color: color-mix(in srgb, var(--crate-primary), transparent 66%);
+      background: color-mix(in srgb, var(--crate-primary), transparent 92%);
+    }
+    .crate-card .stepper input {
+      border-color: color-mix(in srgb, var(--crate-primary), transparent 72%);
+    }
+
+    .credits-theme .card {
+      border-color: rgba(253,186,116,.24);
+      box-shadow: 0 18px 45px rgba(0,0,0,.22), 0 0 30px rgba(253,186,116,.08);
+    }
+    .credits-theme .card:hover {
+      border-color: rgba(253,186,116,.42);
+      box-shadow: 0 0 34px rgba(253,186,116,.14), 0 22px 55px rgba(0,0,0,.28);
+    }
+    .credits-theme .badge,
+    .credits-theme .big-number,
+    .credits-theme #creditRupees {
+      color: #fdba74;
+    }
+    .credits-theme .badge {
+      border-color: rgba(253,186,116,.35);
+      background: rgba(253,186,116,.1);
+    }
+    .credits-theme input[type="range"] {
+      accent-color: #fdba74;
+    }
+    .credits-theme .btn-primary {
+      background: linear-gradient(135deg, #f97316, #fdba74);
+      box-shadow: 0 0 24px rgba(249,115,22,.28);
+    }
+
     .filter-row {
       display: flex;
       flex-wrap: wrap;
@@ -722,19 +804,150 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    #serverUpdatesSection {
+      position: relative;
+      padding: clamp(20px, 4vw, 30px);
+      border: 1px solid rgba(124, 108, 255, 0.45);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at top left, rgba(155, 140, 255, 0.14), transparent 28rem),
+        rgba(91, 124, 250, 0.08);
+      box-shadow: 0 0 34px rgba(124, 108, 255, 0.12);
+    }
+    #serverUpdatesSection .home-kicker,
+    #serverUpdatesSection .section-title {
+      color: #9b8cff;
+    }
+    #serverUpdatesSection::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #7c6cff, #5b7cfa);
+      opacity: .85;
+    }
     .server-updates-grid { margin-top: 18px; }
-    .update-card { display: grid; gap: 12px; }
+    .update-card {
+      display: grid;
+      gap: 12px;
+      border-color: rgba(124, 108, 255, 0.32);
+      background:
+        linear-gradient(180deg, rgba(124,108,255,.08), rgba(255,255,255,.035));
+    }
+    .update-card:hover {
+      border-color: rgba(155, 140, 255, 0.48);
+      box-shadow: 0 0 28px rgba(124, 108, 255, 0.20), 0 22px 55px rgba(0,0,0,.28);
+    }
+    .announcement-author {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .announcement-author img {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border-radius: 14px;
+      object-fit: cover;
+      background: var(--deep);
+      border: 1px solid rgba(155,140,255,.36);
+    }
+    .announcement-author strong {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+    .announcement-meta {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 800;
+    }
+    .bot-badge {
+      padding: 3px 7px;
+      border: 1px solid rgba(124,108,255,.38);
+      border-radius: 999px;
+      color: #9b8cff;
+      background: rgba(91,124,250,.11);
+      font-size: .66rem;
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
     .update-content {
       white-space: pre-wrap;
       color: var(--muted);
       line-height: 1.65;
+    }
+    .discord-inline-emoji {
+      width: 1.35em;
+      height: 1.35em;
+      display: inline-block;
+      vertical-align: -0.28em;
+      object-fit: contain;
+    }
+    .discord-mention,
+    .discord-role-mention,
+    .discord-channel-mention {
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-weight: 900;
+      white-space: nowrap;
+      vertical-align: baseline;
+    }
+    .discord-mention,
+    .discord-channel-mention {
+      color: #c4b5fd;
+      background: rgba(124,108,255,.13);
+      border: 1px solid rgba(124,108,255,.24);
+    }
+    .discord-role-mention {
+      color: var(--role-color, #9b8cff);
+      background: color-mix(in srgb, var(--role-color, #9b8cff), transparent 86%);
+      border: 1px solid color-mix(in srgb, var(--role-color, #9b8cff), transparent 58%);
+    }
+    .update-content code {
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: rgba(0,0,0,.28);
+      color: var(--text);
+    }
+    .update-content pre {
+      overflow-x: auto;
+      padding: 10px;
+      border: 1px solid rgba(124,108,255,.24);
+      border-radius: 12px;
+      background: rgba(0,0,0,.28);
+      white-space: pre;
+    }
+    .update-embed {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-left: 3px solid #7c6cff;
+      border-radius: 12px;
+      background: rgba(91,124,250,.08);
+    }
+    .update-embed p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
     }
     .update-image {
       width: 100%;
       max-height: 280px;
       object-fit: cover;
       border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.1);
+      border: 1px solid rgba(124,108,255,.28);
+    }
+    .update-card .btn {
+      border-color: rgba(124,108,255,.42);
+      color: #c4b5fd;
+      background: rgba(91,124,250,.1);
     }
     .site-popup {
       position: fixed;
@@ -1366,6 +1579,7 @@
     .podium-stat-value.leaderboard-stat-overall,
     .podium-stat-label.leaderboard-stat-overall,
     .leaderboard-stat-heading.leaderboard-stat-overall { color: #c084fc; }
+    .podium-stats.overall-stats .podium-stat-value:not(.leaderboard-stat-overall) { color: #fff; }
     .rank-top-1 { color: var(--warning); }
     .rank-top-2 { color: var(--neon); }
     .rank-top-3 { color: var(--bright); }
@@ -2003,12 +2217,20 @@
       { id: "devour", name: "Devour Crate Key", icon: "◆", price: 0, badge: "COMING SOON", description: "The ultimate DevourMC crate is currently being prepared.", enabled: false }
     ];
 
+    const crateThemes = {
+      titan: { primary: "#facc15", glow: "rgba(250, 204, 21, 0.35)", soft: "rgba(250, 204, 21, 0.16)" },
+      reaper: { primary: "#ef4444", glow: "rgba(239, 68, 68, 0.35)", soft: "rgba(239, 68, 68, 0.15)" },
+      omega: { primary: "#f97316", glow: "rgba(249, 115, 22, 0.35)", soft: "rgba(249, 115, 22, 0.15)" },
+      royal: { primary: "#1d4ed8", glow: "rgba(29, 78, 216, 0.35)", soft: "rgba(29, 78, 216, 0.16)" },
+      devour: { primary: "#a855f7", glow: "rgba(168, 85, 247, 0.35)", soft: "rgba(168, 85, 247, 0.16)" }
+    };
+
     const cratePreviews = {
-      titan: { name: "Titan Crate Key", heading: "Possible Rewards", images: ["./images/crates/titan-crate-preview.svg"], accent: "#22d3ee", alt: "Titan crate rewards preview for DevourMC" },
-      reaper: { name: "Reaper Crate Key", heading: "Possible Rewards", images: ["./images/crates/reaper-crate-preview.svg"], accent: "#f43f5e", alt: "Reaper crate rewards preview for DevourMC" },
-      omega: { name: "Omega Crate Key", heading: "Possible Rewards", images: ["./images/crates/omega-crate-preview.svg"], accent: "#a855f7", alt: "Omega crate rewards preview for DevourMC" },
-      royal: { name: "Royal Crate Key", heading: "Possible Rewards", images: ["./images/crates/royal-crate-preview.svg"], accent: "#facc15", alt: "Royal crate rewards preview for DevourMC" },
-      devour: { name: "Devour Crate Key", heading: "Crate Preview", images: ["./images/crates/devour-crate-preview.svg"], accent: "#c084fc", alt: "Devour crate rewards preview for DevourMC" }
+      titan: { name: "Titan Crate Key", heading: "Possible Rewards", images: ["./images/crates/titan-crate-preview.svg"], accent: crateThemes.titan.primary, alt: "Titan crate rewards preview for DevourMC" },
+      reaper: { name: "Reaper Crate Key", heading: "Possible Rewards", images: ["./images/crates/reaper-crate-preview.svg"], accent: crateThemes.reaper.primary, alt: "Reaper crate rewards preview for DevourMC" },
+      omega: { name: "Omega Crate Key", heading: "Possible Rewards", images: ["./images/crates/omega-crate-preview.svg"], accent: crateThemes.omega.primary, alt: "Omega crate rewards preview for DevourMC" },
+      royal: { name: "Royal Crate Key", heading: "Possible Rewards", images: ["./images/crates/royal-crate-preview.svg"], accent: crateThemes.royal.primary, alt: "Royal crate rewards preview for DevourMC" },
+      devour: { name: "Devour Crate Key", heading: "Crate Preview", images: ["./images/crates/devour-crate-preview.svg"], accent: crateThemes.devour.primary, alt: "Devour crate rewards preview for DevourMC" }
     };
 
     const creditShopItems = [
@@ -2558,8 +2780,6 @@
             <div class="grid grid-3" id="categoryGrid"></div>
           </section>
 
-          ${renderServerScreenshotSection()}
-
           <section class="home-section reveal" id="serverUpdatesSection">
             <div class="home-copy">
               <span class="home-kicker">Announcements</span>
@@ -2568,6 +2788,8 @@
             </div>
             <div class="server-updates-grid" id="serverUpdatesArea">${skeletonBlock()}</div>
           </section>
+
+          ${renderServerScreenshotSection()}
 
           <section class="home-section">
             <h2 class="section-title reveal">Why Players Choose DevourMC</h2>
@@ -2684,12 +2906,82 @@
       openScreenshotLightbox(activeScreenshotIndex + delta);
     }
 
-    function formatDiscordContent(content) {
-      const escaped = escapeHTML(content || "");
-      return escaped
+    function lookupById(items) {
+      const map = new Map();
+      (Array.isArray(items) ? items : []).forEach(item => {
+        const id = safeText(item?.id);
+        if (id) map.set(id, item);
+      });
+      return map;
+    }
+
+    function safeCssColor(value, fallback = "#9b8cff") {
+      const color = safeText(value);
+      return /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
+    }
+
+    function protectCodeBlocks(html) {
+      const protectedBlocks = [];
+      const token = index => `@@DISCORD_CODE_${index}@@`;
+      const protectedHtml = html
+        .replace(/```([\s\S]*?)```/g, (_, code) => {
+          const index = protectedBlocks.length;
+          protectedBlocks.push(`<pre><code>${code}</code></pre>`);
+          return token(index);
+        })
+        .replace(/`([^`\n]+)`/g, (_, code) => {
+          const index = protectedBlocks.length;
+          protectedBlocks.push(`<code>${code}</code>`);
+          return token(index);
+        });
+      return {
+        html: protectedHtml,
+        restore(value) {
+          return protectedBlocks.reduce((result, block, index) => result.replace(token(index), block), value);
+        }
+      };
+    }
+
+    function formatDiscordContent(content, update = {}) {
+      const roles = lookupById(update.roleMentions);
+      const users = lookupById(update.userMentions);
+      const channels = lookupById(update.channelMentions);
+      const protectedCode = protectCodeBlocks(escapeHTML(content || ""));
+      let html = protectedCode.html;
+
+      html = html.replace(/(https?:\/\/[^\s<]+)/g, `<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>`);
+      html = html
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-        .replace(/(https?:\/\/[^\s<]+)/g, `<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>`);
+        .replace(/__([^_]+)__/g, "<u>$1</u>")
+        .replace(/~~([^~]+)~~/g, "<s>$1</s>")
+        .replace(/(^|[^\*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+
+      html = html.replace(/&lt;(a?):([A-Za-z0-9_]{2,32}):(\d{16,25})&gt;/g, (_, animated, name, id) => {
+        const extension = animated ? "gif" : "png";
+        const alt = `:${name}:`;
+        return `<img src="https://cdn.discordapp.com/emojis/${id}.${extension}" alt="${escapeHTML(alt)}" class="discord-inline-emoji" loading="lazy" onerror="this.replaceWith(document.createTextNode('${escapeHTML(alt)}'))">`;
+      });
+
+      html = html.replace(/&lt;@&amp;(\d{16,25})&gt;/g, (_, id) => {
+        const role = roles.get(id);
+        const name = role?.name || "Role";
+        const color = safeCssColor(role?.color);
+        return `<span class="discord-role-mention" style="--role-color:${escapeHTML(color)}">@${escapeHTML(name)}</span>`;
+      });
+
+      html = html.replace(/&lt;@!?(\d{16,25})&gt;/g, (_, id) => {
+        const user = users.get(id);
+        const name = user?.displayName || "User";
+        return `<span class="discord-mention">@${escapeHTML(name)}</span>`;
+      });
+
+      html = html.replace(/&lt;#(\d{16,25})&gt;/g, (_, id) => {
+        const channel = channels.get(id);
+        const name = channel?.name || "channel";
+        return `<span class="discord-channel-mention">#${escapeHTML(name)}</span>`;
+      });
+
+      return protectedCode.restore(html);
     }
 
     async function loadDiscordAnnouncements() {
@@ -2710,16 +3002,41 @@
       }
     }
 
+    function announcementAuthor(update) {
+      const author = update?.author && typeof update.author === "object" ? update.author : {};
+      return {
+        displayName: safeText(author.displayName || author.username) || "DevourMC Staff",
+        username: safeText(author.username),
+        avatarUrl: safeText(author.avatarUrl) || DEVOURMC_LOGO,
+        bot: Boolean(author.bot),
+        webhook: Boolean(author.webhook)
+      };
+    }
+
     function renderAnnouncementCard(update) {
-      const posted = update.createdAt ? new Date(update.createdAt) : null;
+      const posted = update.timestamp || update.createdAt ? new Date(update.timestamp || update.createdAt) : null;
       const postedText = posted && Number.isFinite(posted.getTime()) ? posted.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "";
+      const author = announcementAuthor(update);
       const image = Array.isArray(update.attachments) && update.attachments[0]?.url
         ? `<a href="${escapeHTML(update.attachments[0].url)}" target="_blank" rel="noopener noreferrer"><img class="update-image" src="${escapeHTML(update.attachments[0].url)}" alt="${escapeHTML(update.attachments[0].filename || "DevourMC announcement image")}" loading="lazy" decoding="async"></a>`
         : "";
+      const embed = Array.isArray(update.embeds) ? update.embeds.find(item => item?.title || item?.description || item?.image) : null;
+      const embedHTML = embed ? `<div class="update-embed">
+        ${embed.title ? `<strong>${escapeHTML(embed.title)}</strong>` : ""}
+        ${embed.description ? `<p>${formatDiscordContent(embed.description, update)}</p>` : ""}
+        ${embed.image ? `<img class="update-image" src="${escapeHTML(embed.image)}" alt="${escapeHTML(embed.title || "DevourMC announcement embed image")}" loading="lazy" decoding="async">` : ""}
+      </div>` : "";
       const link = validExternalUrl(update.url) ? `<a class="btn btn-small" href="${escapeHTML(update.url)}" target="_blank" rel="noopener noreferrer">View on Discord</a>` : "";
       return `<article class="card update-card reveal visible">
-        <div class="media-meta"><span class="badge">${update.pinned ? "Pinned" : "DevourMC Announcement"}</span>${postedText ? `<span>${escapeHTML(postedText)}</span>` : ""}</div>
-        <div class="update-content">${formatDiscordContent(update.content || "New server update posted.")}</div>
+        <div class="announcement-author">
+          <img src="${escapeHTML(author.avatarUrl)}" alt="${escapeHTML(author.displayName)} avatar" loading="lazy" decoding="async" onerror="this.src='${DEVOURMC_LOGO}'">
+          <div>
+            <strong>${escapeHTML(author.displayName)}${author.bot ? `<span class="bot-badge">BOT</span>` : ""}</strong>
+            <div class="announcement-meta">${update.pinned ? "Pinned announcement" : "Posted"}${postedText ? ` on ${escapeHTML(postedText)}` : ""}</div>
+          </div>
+        </div>
+        <div class="update-content">${formatDiscordContent(update.content || "New server update posted.", update)}</div>
+        ${embedHTML}
         ${image}
         ${link ? `<div class="hero-actions">${link}</div>` : ""}
       </article>`;
@@ -2823,9 +3140,14 @@
       return rank.commands.includes(cmd) ? "Yes" : "—";
     }
 
+    function crateThemeStyle(id) {
+      const theme = crateThemes[id] || crateThemes.devour;
+      return `--crate-primary:${theme.primary};--crate-glow:${theme.glow};--crate-soft:${theme.soft};`;
+    }
+
     function renderKeys() {
       document.getElementById("page-keys").innerHTML = pageShell("Crate Keys", "Unlock premium rewards, valuable resources, cosmetics, equipment, money, spawners, and rare server items.", `
-        <div class="grid grid-3">${crates.map(crate => `<article class="card reveal">
+        <div class="grid grid-3">${crates.map(crate => `<article class="card crate-card reveal" style="${crateThemeStyle(crate.id)}">
           <div class="rank-top"><div><div class="card-icon">${crate.icon}</div><h3>${escapeHTML(crate.name)}</h3></div>${crate.badge ? `<span class="badge">${crate.badge}</span>` : ""}</div>
           <p>${escapeHTML(crate.description)}</p>
           <div class="price">${crate.enabled ? `${money(crate.price)}/key` : "Coming Soon"}</div>
@@ -2841,6 +3163,7 @@
 
     function renderCredits() {
       document.getElementById("page-credits").innerHTML = pageShell("DevourMC Credits", "Purchase store credits and use them for supported DevourMC purchases and premium content.", `
+        <div class="credits-theme">
         <div class="credits-lab">
           <div class="card reveal">
             <span class="badge">Credits Calculator</span>
@@ -2861,6 +3184,7 @@
         <p class="demo-note reveal"><span class="badge">Image placeholders</span><span>Replace these files and names in the creditShopItems array when your final credit-shop images are ready.</span></p>
         <div class="credit-shop-carousel-wrap reveal">
           ${renderCreditShopCarousel()}
+        </div>
         </div>`);
       initCarousels(document.getElementById("page-credits"));
       updateCreditUI();
@@ -2876,7 +3200,7 @@
       return renderCarousel({
         id: "credit-shop",
         items,
-        accent: "#8b5cf6",
+        accent: "#fdba74",
         variant: "credit-shop-carousel",
         showTitle: true,
         fallbackAlt: "Credit Shop item preview"
@@ -3370,27 +3694,17 @@
     }
 
     function teamStatHeaders(tabId) {
-      if (tabId === "overall") return "<th>Kills</th><th>Balance</th><th>Overall</th>";
-      if (tabId === "kills") return `<th>${teamStatHeader("kills", "Kills")}</th>`;
-      if (tabId === "balance") return `<th>${teamStatHeader("balance", "Balance")}</th>`;
-      return `<th>${teamStatHeader("members", "Members")}</th>`;
+      if (tabId === "overall") return `<th>Kills</th><th>Balance</th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span>Overall</span></span></th>`;
+      if (tabId === "kills") return "<th>Kills</th>";
+      if (tabId === "balance") return "<th>Balance</th>";
+      return "<th>Members</th>";
     }
 
     function teamStatCells(entry, tabId) {
       if (tabId === "overall") {
-        return `<td class="leaderboard-value">${escapeHTML(entry.formattedKills)}</td><td class="leaderboard-value">${escapeHTML(entry.formattedBalance)}</td><td class="leaderboard-value">${escapeHTML(entry.formattedOverallScore)}</td>`;
+        return `<td class="leaderboard-value">${escapeHTML(entry.formattedKills)}</td><td class="leaderboard-value">${escapeHTML(entry.formattedBalance)}</td><td class="leaderboard-value leaderboard-stat-value leaderboard-stat-overall">${escapeHTML(entry.formattedOverallScore)}</td>`;
       }
-      return `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-${escapeHTML(teamStatClass(tabId))}">${escapeHTML(teamMetricValue(entry, tabId))}</td>`;
-    }
-
-    function teamStatHeader(key, label) {
-      return `<span class="leaderboard-stat-heading leaderboard-stat-${escapeHTML(teamStatClass(key))}"><span>${escapeHTML(label)}</span></span>`;
-    }
-
-    function teamStatClass(tabId) {
-      if (tabId === "balance") return "balance";
-      if (tabId === "members") return "members";
-      return tabId;
+      return `<td class="leaderboard-value">${escapeHTML(teamMetricValue(entry, tabId))}</td>`;
     }
 
     function renderPerson(person, fallbackName) {
@@ -3476,8 +3790,8 @@
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3>
         <div class="podium-stats team-podium-stats">
           ${tabId === "overall"
-            ? [["Kills", item.formattedKills], ["Balance", item.formattedBalance], ["Overall", item.formattedOverallScore]].map(([statLabel, statValue]) => renderTeamPodiumStat(statLabel, statValue)).join("")
-            : renderTeamPodiumStat(label, teamMetricValue(item, tabId), teamStatClass(tabId))}
+            ? [["Kills", item.formattedKills, ""], ["Balance", item.formattedBalance, ""], ["Overall", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
+            : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
         </div>
         <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
       </div>`).join("")}</div>`;
@@ -3486,7 +3800,7 @@
     function renderTeamPodiumStat(label, value, statClass = "") {
       const colorClass = safeText(statClass);
       return `<div class="podium-stat">
-        <span class="podium-stat-label ${colorClass ? `leaderboard-stat-${escapeHTML(colorClass)}` : ""}">${escapeHTML(label)}</span>
+        <span class="podium-stat-label">${escapeHTML(label)}</span>
         <span class="podium-stat-value ${colorClass ? `leaderboard-stat-${escapeHTML(colorClass)}` : ""}">${escapeHTML(value)}</span>
       </div>`;
     }
@@ -4134,7 +4448,7 @@
         carouselId: `crate-${crate.id}`,
         accent: preview.accent,
         alt: preview.alt,
-        actionHTML: crate.enabled ? `<button class="btn btn-primary" data-add-crate="${crate.id}" type="button">Add Key to Cart</button>` : ""
+        actionHTML: crate.enabled ? `<button class="btn btn-primary crate-preview-action" data-add-crate="${crate.id}" type="button">Add Key to Cart</button>` : ""
       });
     }
 
