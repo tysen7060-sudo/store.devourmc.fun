@@ -33,7 +33,6 @@ const DEFAULT_ROLE_COLOR = "#9b8cff";
 const PAYMENT_STORAGE_PREFIX = "devourmc:payment-order:";
 const RAZORPAY_ORDER_PREFIX = "devourmc:razorpay-order:";
 const RAZORPAY_PAYMENT_PREFIX = "devourmc:razorpay-payment:";
-const PAYMENT_STORAGE_REQUIRED = "Persistent payment storage is not configured.";
 const STORE_PRODUCTS = {
   rank: {
     elite: { id: "elite", name: "ELITE Rank", category: "Rank", pricePaise: 9900 },
@@ -65,6 +64,7 @@ const SERVER_COUPONS = [
 let announcementCache = { expiresAt: 0, data: null };
 let guildMetaCache = { expiresAt: 0, roles: new Map(), channels: new Map() };
 let serverStatusCache = { expiresAt: 0, data: null };
+const memoryPaymentStore = new Map();
 
 function clientKey(req) {
   return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
@@ -313,7 +313,7 @@ function paymentStorageConfigured() {
 
 async function paymentStoreCommand(args) {
   if (!paymentStorageConfigured()) {
-    throw new RequestError(PAYMENT_STORAGE_REQUIRED, 500, "PAYMENT_STORAGE_NOT_CONFIGURED");
+    return memoryPaymentStoreCommand(args);
   }
   const response = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
     method: "POST",
@@ -328,6 +328,23 @@ async function paymentStoreCommand(args) {
     throw new RequestError("Payment storage request failed.", 502, "PAYMENT_STORAGE_FAILED");
   }
   return payload.result;
+}
+
+function memoryPaymentStoreCommand(args) {
+  const [command, key, value, mode] = args;
+  const normalized = String(command || "").toUpperCase();
+  console.warn("Payment storage is using in-memory fallback. Configure Upstash Redis before Live Mode.");
+  if (normalized === "GET") {
+    return memoryPaymentStore.get(key) || null;
+  }
+  if (normalized === "SET") {
+    if (String(mode || "").toUpperCase() === "NX" && memoryPaymentStore.has(key)) {
+      return null;
+    }
+    memoryPaymentStore.set(key, value);
+    return "OK";
+  }
+  throw new RequestError("Payment storage command is unsupported.", 500, "PAYMENT_STORAGE_FAILED");
 }
 
 async function setPaymentRecord(key, value) {
@@ -423,12 +440,14 @@ function normalizePaymentItem(item) {
   if (type === "rank") {
     const product = STORE_PRODUCTS.rank[id];
     if (!product) throw new RequestError("Invalid rank product.", 400, "INVALID_PRODUCT");
+    console.info("Payment product matched:", { receivedId: id, matchedId: product.id, type, quantity: 1, pricePaise: product.pricePaise });
     return { ...product, type, quantity: 1, lineTotalPaise: product.pricePaise };
   }
   if (type === "crate") {
     const product = STORE_PRODUCTS.crate[id];
     if (!product) throw new RequestError("Invalid crate product.", 400, "INVALID_PRODUCT");
     const safeQuantity = Math.min(quantity, 64);
+    console.info("Payment product matched:", { receivedId: id, matchedId: product.id, type, quantity: safeQuantity, pricePaise: product.pricePaise });
     return { ...product, type, quantity: safeQuantity, lineTotalPaise: product.pricePaise * safeQuantity };
   }
   if (type === "credits") {
@@ -440,6 +459,7 @@ function normalizePaymentItem(item) {
     const credits = (amount / 50) * 165;
     const safeQuantity = Math.min(quantity, 99);
     const pricePaise = amount * 100;
+    console.info("Payment product matched:", { receivedId: id, matchedId: id, type, quantity: safeQuantity, pricePaise });
     return {
       id,
       type,
@@ -487,30 +507,52 @@ function calculateTrustedOrder(body) {
 }
 
 function paymentEnv() {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) {
-    throw new RequestError("Razorpay is not configured.", 500, "RAZORPAY_NOT_CONFIGURED");
+  const keyId = text(process.env.RAZORPAY_KEY_ID, 120);
+  const keySecret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
+  const appBaseUrl = text(process.env.APP_BASE_URL, 300);
+  if (!keyId) throw new RequestError("RAZORPAY_KEY_ID is missing.", 500, "RAZORPAY_KEY_ID_MISSING");
+  if (!keySecret) throw new RequestError("RAZORPAY_KEY_SECRET is missing.", 500, "RAZORPAY_KEY_SECRET_MISSING");
+  if (!appBaseUrl) throw new RequestError("APP_BASE_URL is missing.", 500, "APP_BASE_URL_MISSING");
+  if (!keyId.startsWith("rzp_test_")) {
+    throw new RequestError("Razorpay Test Mode key ID must begin with rzp_test_.", 500, "RAZORPAY_MODE_MISMATCH");
   }
-  return { keyId, keySecret };
+  console.info("Razorpay environment detected:", {
+    keyIdPrefix: keyId.slice(0, 9),
+    hasKeySecret: true,
+    hasAppBaseUrl: true,
+    storage: paymentStorageConfigured() ? "upstash" : "memory-test-fallback"
+  });
+  return { keyId, keySecret, appBaseUrl };
 }
 
-async function razorpayRequest(path, body) {
+function createRazorpayClient() {
   const { keyId, keySecret } = paymentEnv();
-  const response = await fetch(`https://api.razorpay.com/v1${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    console.warn("Razorpay request failed:", response.status, payload?.error?.code || "unknown");
-    throw new RequestError("Payment order could not be created.", 502, "RAZORPAY_REQUEST_FAILED");
+  let Razorpay;
+  try {
+    Razorpay = require("razorpay");
+  } catch {
+    throw new RequestError("Razorpay SDK dependency is missing.", 500, "RAZORPAY_SDK_MISSING");
   }
-  return payload;
+  return new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret
+  });
+}
+
+async function createRazorpayOrder(body) {
+  const razorpay = createRazorpayClient();
+  try {
+    return await razorpay.orders.create(body);
+  } catch (error) {
+    const razorpayError = error?.error || error;
+    console.warn("Razorpay order create failed:", {
+      statusCode: error?.statusCode || error?.status,
+      code: razorpayError?.code || "unknown",
+      reason: razorpayError?.reason || "unknown",
+      description: text(razorpayError?.description || error?.message, 300)
+    });
+    throw new RequestError(text(razorpayError?.description, 300) || "Payment order could not be created.", 502, "ORDER_CREATION_FAILED");
+  }
 }
 
 function verifyRazorpayCheckoutSignature(orderId, paymentId, signature) {
@@ -899,14 +941,19 @@ async function handleServerStatus(req, res) {
 async function handleCreateRazorpayOrder(req, res) {
   if (!methodGuard(req, res)) return;
   try {
-    if (!paymentStorageConfigured()) {
-      throw new RequestError(PAYMENT_STORAGE_REQUIRED, 500, "PAYMENT_STORAGE_NOT_CONFIGURED");
-    }
+    paymentEnv();
     const body = await readJsonBody(req);
     const trusted = calculateTrustedOrder(body);
+    console.info("Payment order total calculated:", {
+      items: trusted.products.length,
+      subtotalPaise: trusted.subtotalPaise,
+      discountPaise: trusted.discountPaise,
+      finalTotalPaise: trusted.finalTotalPaise,
+      currency: trusted.currency
+    });
     const id = internalOrderId();
     const receipt = id.slice(0, 40);
-    const razorpayOrder = await razorpayRequest("/orders", {
+    const razorpayOrder = await createRazorpayOrder({
       amount: trusted.finalTotalPaise,
       currency: trusted.currency,
       receipt,
@@ -942,14 +989,23 @@ async function handleCreateRazorpayOrder(req, res) {
     await setPaymentRecord(`${RAZORPAY_ORDER_PREFIX}${razorpayOrder.id}`, { internalOrderId: id });
 
     const { keyId } = paymentEnv();
+    const safeOrder = safeOrderResponse(order);
     res.status(200).json({
       success: true,
+      internalOrderId: order.internalOrderId,
+      razorpayOrderId: order.razorpayOrderId,
       keyId,
-      order: safeOrderResponse(order)
+      amount: order.finalTotalPaise,
+      currency: order.currency,
+      order: safeOrder
     });
   } catch (error) {
     console.warn("Razorpay order creation failed:", error?.code || error?.message || "unknown");
-    safeError(res, error, "Payment order could not be created.");
+    res.status(Number(error?.statusCode) || 500).json({
+      success: false,
+      error: error?.code || "ORDER_CREATION_FAILED",
+      message: error?.message || "Payment order could not be created."
+    });
   }
 }
 

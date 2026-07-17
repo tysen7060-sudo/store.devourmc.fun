@@ -121,7 +121,7 @@ Persistent storage is required before payments are accepted. The implementation 
 - Razorpay payment idempotency keys
 - paid/fulfilled/purchase-notified state
 
-If Upstash is not configured, payment order creation fails safely instead of pretending production-safe fulfilment exists.
+For Razorpay Test Mode debugging, the API can fall back to in-memory order storage so the Standard Checkout popup can be opened and tested. This fallback is not production-safe because Vercel serverless instances can restart or run in parallel. Configure Upstash Redis before switching to Live Mode.
 
 ### Payment Fulfilment Rules
 

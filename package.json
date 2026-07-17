@@ -2,6 +2,9 @@
   "name": "devourmc-store",
   "version": "1.0.0",
   "private": true,
+  "dependencies": {
+    "razorpay": "^2.9.6"
+  },
   "scripts": {
     "build": "node scripts/verify-build.js",
     "lint": "node scripts/verify-build.js"

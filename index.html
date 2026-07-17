@@ -5030,7 +5030,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload?.success !== true) {
-        throw new Error(payload?.error || "Payment order could not be created.");
+        throw new Error(payload?.message || payload?.error || "Payment order could not be created.");
       }
       return payload;
     }
@@ -5072,13 +5072,18 @@
         state.paymentStarted = true;
         persistCheckoutSession();
         const payload = await createCheckoutSession();
-        const order = payload.order || {};
-        state.checkoutPaymentOrderId = order.internalOrderId || "";
+        const order = payload.order || {
+          internalOrderId: payload.internalOrderId,
+          razorpayOrderId: payload.razorpayOrderId,
+          amount: payload.amount,
+          currency: payload.currency
+        };
+        state.checkoutPaymentOrderId = order.internalOrderId || payload.internalOrderId || "";
         persistCheckoutSession();
         const razorpay = new window.Razorpay({
           key: payload.keyId,
-          amount: order.amount,
-          currency: order.currency || "INR",
+          amount: order.amount || payload.amount,
+          currency: order.currency || payload.currency || "INR",
           name: "DevourMC",
           description: `Order ${order.internalOrderId}`,
           order_id: order.razorpayOrderId,
