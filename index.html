@@ -615,6 +615,30 @@
     .perk-list li::before { content: "◆"; color: var(--rank); font-size: .78rem; margin-top: 2px; }
     .command-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .command-list code { padding: 5px 8px; border-radius: 9px; background: rgba(0,0,0,.2); color: var(--text); border: 1px solid rgba(255,255,255,.08); }
+    .rank-card .btn-primary {
+      border-color: color-mix(in srgb, var(--rank), #fff 18%);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--rank), #12071f 18%), var(--rank));
+      box-shadow: 0 0 22px color-mix(in srgb, var(--rank), transparent 70%);
+      animation: none;
+    }
+    .rank-card .btn-primary:hover,
+    .rank-card .btn-primary:focus-visible {
+      box-shadow: 0 0 26px color-mix(in srgb, var(--rank), transparent 58%);
+      background: linear-gradient(135deg, var(--rank), color-mix(in srgb, var(--rank), #fff 16%));
+    }
+    .rank-card .btn:not(.btn-primary) {
+      color: var(--rank);
+      border-color: color-mix(in srgb, var(--rank), transparent 58%);
+      background: color-mix(in srgb, var(--rank), transparent 90%);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--rank), transparent 86%);
+    }
+    .rank-card .btn:not(.btn-primary):hover,
+    .rank-card .btn:not(.btn-primary):focus-visible {
+      color: var(--text);
+      border-color: color-mix(in srgb, var(--rank), transparent 36%);
+      background: color-mix(in srgb, var(--rank), transparent 78%);
+      box-shadow: 0 0 22px color-mix(in srgb, var(--rank), transparent 70%);
+    }
 
     .crate-card {
       --crate-primary: var(--primary);
@@ -1191,6 +1215,40 @@
       box-shadow: 0 18px 40px rgba(0,0,0,.32);
     }
     .preview-note { margin: 0; color: var(--muted); font-size: .9rem; }
+    .kit-content {
+      display: grid;
+      gap: 18px;
+      padding: 16px;
+      border: 1px solid color-mix(in srgb, var(--preview-accent), transparent 62%);
+      border-radius: 18px;
+      background: rgba(0,0,0,.18);
+    }
+    .kit-content h3,
+    .kit-content h4 {
+      color: var(--preview-accent);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .kit-content h3 { font-size: 1.05rem; }
+    .kit-content h4 { font-size: .82rem; margin-bottom: 8px; }
+    .kit-section { display: grid; gap: 10px; }
+    .kit-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .kit-entry {
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--preview-accent);
+      border-radius: 12px;
+      background: rgba(255,255,255,.045);
+    }
+    .kit-entry strong { color: var(--text); }
+    .kit-entry span { color: var(--muted); font-size: .9rem; }
 
     .media-carousel {
       --carousel-accent: var(--primary);
@@ -2300,13 +2358,24 @@
       { id: "custom", name: "CUSTOM", icon: "✦", price: 499, billing: "monthly", color: "#c084fc", badge: "ULTIMATE", custom: true, customPrefix: true, auctionListings: 14, homes: 14, vaults: 14, kit: "Sentinal Kit", commands: ["/sit", "/hat", "/ec", "/lay", "/craft", "/anvil", "/spin", "/crawl", "/disposal", "/nick", "/workbench", "/bellyflop", "/smithingtable", "/stonecutter"] }
     ];
 
+    const baseKitEquipment = rankName => [
+      { name: `${rankName} Helmet`, enchants: ["Prot IV", "Unb III"] },
+      { name: `${rankName} Chestplate`, enchants: ["Prot IV", "Unb III"] },
+      { name: `${rankName} Leggings`, enchants: ["Prot IV", "Unb III"] },
+      { name: `${rankName} Boots`, enchants: ["Prot IV", "Unb III"] },
+      { name: `${rankName} Sword`, enchants: ["Sharp V", "Unb III"] },
+      { name: `${rankName} Pickaxe`, enchants: ["Eff V", "Unb III"] }
+    ];
+
+    const baseKitItems = ["32x Ender Pearl", "32x Golden Apple"];
+
     const rankPreviews = {
-      elite: { name: "ELITE", subtitle: "Kit Preview", images: ["./images/rank-kits/elite-kit-preview.svg"], accent: "#22d3ee", alt: "Elite rank kit preview for DevourMC" },
-      cosmic: { name: "COSMIC", subtitle: "Kit Preview", images: ["./images/rank-kits/cosmic-kit-preview.svg"], accent: "#facc15", alt: "Cosmic rank kit preview for DevourMC" },
-      archon: { name: "ARCHON", subtitle: "Kit Preview", images: ["./images/rank-kits/archon-kit-preview.svg"], accent: "#fb923c", alt: "Archon rank kit preview for DevourMC" },
-      celestial: { name: "CELESTIAL", subtitle: "Kit Preview", images: ["./images/rank-kits/celestial-kit-preview.svg"], accent: "#f43f5e", alt: "Celestial rank kit preview for DevourMC" },
-      ascendant: { name: "ASCENDANT", subtitle: "Kit Preview", images: ["./images/rank-kits/ascendant-kit-preview.svg"], accent: "#a855f7", alt: "Ascendant rank kit preview for DevourMC" },
-      custom: { name: "CUSTOM", subtitle: "Kit Preview", images: ["./images/rank-kits/custom-kit-preview.svg"], accent: "#c084fc", alt: "Custom rank kit preview for DevourMC" }
+      elite: { name: "ELITE", subtitle: "Kit Preview", images: ["/images/rank-kits/elite-kit-preview.png"], accent: "#22d3ee", alt: "Elite rank kit preview for DevourMC", kitTitle: "ELITE KIT", equipment: baseKitEquipment("Elite"), otherItems: baseKitItems },
+      cosmic: { name: "COSMIC", subtitle: "Kit Preview", images: ["/images/rank-kits/cosmic-kit-preview.png"], accent: "#facc15", alt: "Cosmic rank kit preview for DevourMC", kitTitle: "COSMIC KIT", equipment: baseKitEquipment("Cosmic"), otherItems: baseKitItems },
+      archon: { name: "ARCHON", subtitle: "Kit Preview", images: ["/images/rank-kits/archon-kit-preview.png"], accent: "#fb923c", alt: "Archon rank kit preview for DevourMC", kitTitle: "ARCHON KIT", equipment: baseKitEquipment("Archon"), otherItems: baseKitItems },
+      celestial: { name: "CELESTIAL", subtitle: "Kit Preview", images: ["/images/rank-kits/celestial-kit-preview.png"], accent: "#f43f5e", alt: "Celestial rank kit preview for DevourMC", kitTitle: "CELESTIAL KIT", equipment: baseKitEquipment("Celestial"), otherItems: baseKitItems },
+      ascendant: { name: "ASCENDANT", subtitle: "Kit Preview", images: ["/images/rank-kits/ascendant-kit-preview.png"], accent: "#a855f7", alt: "Ascendant rank kit preview for DevourMC", kitTitle: "ASCENDANT KIT", equipment: baseKitEquipment("Ascendant"), otherItems: baseKitItems },
+      custom: { name: "CUSTOM", subtitle: "Kit Preview", images: ["/images/rank-kits/custom-kit-preview.png"], accent: "#c084fc", alt: "Custom rank kit preview for DevourMC", kitTitle: "CUSTOM KIT", equipment: baseKitEquipment("Custom"), otherItems: baseKitItems }
     };
 
     const crates = [
@@ -2326,10 +2395,10 @@
     };
 
     const cratePreviews = {
-      titan: { name: "Titan Crate Key", heading: "Possible Rewards", images: ["./images/crates/titan-crate-preview.svg"], accent: crateThemes.titan.primary, alt: "Titan crate rewards preview for DevourMC" },
-      reaper: { name: "Reaper Crate Key", heading: "Possible Rewards", images: ["./images/crates/reaper-crate-preview.svg"], accent: crateThemes.reaper.primary, alt: "Reaper crate rewards preview for DevourMC" },
-      omega: { name: "Omega Crate Key", heading: "Possible Rewards", images: ["./images/crates/omega-crate-preview.svg"], accent: crateThemes.omega.primary, alt: "Omega crate rewards preview for DevourMC" },
-      royal: { name: "Royal Crate Key", heading: "Possible Rewards", images: ["./images/crates/royal-crate-preview.svg"], accent: crateThemes.royal.primary, alt: "Royal crate rewards preview for DevourMC" },
+      titan: { name: "Titan Crate Key", heading: "Possible Rewards", images: ["/images/crates/titan-crate-preview.png", "/images/crates/titan-crate-preview-2.png"], accent: crateThemes.titan.primary, alt: "Titan crate rewards preview for DevourMC" },
+      reaper: { name: "Reaper Crate Key", heading: "Possible Rewards", images: ["/images/crates/reaper-crate-preview.png", "/images/crates/reaper-crate-preview-2.png"], accent: crateThemes.reaper.primary, alt: "Reaper crate rewards preview for DevourMC" },
+      omega: { name: "Omega Crate Key", heading: "Possible Rewards", images: ["/images/crates/omega-crate-preview.png", "/images/crates/omega-crate-preview-2.png"], accent: crateThemes.omega.primary, alt: "Omega crate rewards preview for DevourMC" },
+      royal: { name: "Royal Crate Key", heading: "Possible Rewards", images: ["/images/crates/royal-crate-preview.png", "/images/crates/royal-crate-preview-2.png"], accent: crateThemes.royal.primary, alt: "Royal crate rewards preview for DevourMC" },
       devour: { name: "Devour Crate Key", heading: "Crate Preview", images: ["./images/crates/devour-crate-preview.svg"], accent: crateThemes.devour.primary, alt: "Devour crate rewards preview for DevourMC" }
     };
 
@@ -3203,7 +3272,7 @@
         <div><div class="price">${money(rank.price)}/monthly</div><div class="billing">Monthly Subscription</div></div>
         <ul class="perk-list">${extra}<li>${rank.auctionListings} auction listings</li><li>${rank.homes} homes</li><li>${rank.vaults} vaults</li><li>${escapeHTML(rank.kit)}</li></ul>
         <div class="command-list">${rank.commands.map(cmd => `<code>${escapeHTML(cmd)}</code>`).join("")}</div>
-        <div class="hero-actions"><button class="btn btn-primary btn-small" data-add-rank="${rank.id}" type="button">Buy Rank</button><button class="btn btn-small" data-rank-details="${rank.id}" type="button">Details</button></div>
+        <div class="hero-actions"><button class="btn btn-primary btn-small" data-add-rank="${rank.id}" type="button">Buy Rank</button><button class="btn btn-small" data-rank-details="${rank.id}" type="button">Kit Preview</button></div>
       </article>`;
     }
 
@@ -3259,7 +3328,7 @@
             <button data-crate-plus="${crate.id}" ${crate.enabled ? "" : "disabled"} type="button">+</button>
           </div>
           <p><strong>Total: <span id="crateTotal-${crate.id}">${crate.enabled ? money(crate.price) : "Unavailable"}</span></strong></p>
-          <div class="hero-actions"><button class="btn btn-primary btn-small" data-add-crate="${crate.id}" ${crate.enabled ? "" : "disabled"} type="button">Buy Key</button><button class="btn btn-small" data-crate-preview="${crate.id}" type="button">Preview Rewards</button></div>
+          <div class="hero-actions"><button class="btn btn-primary btn-small" data-add-crate="${crate.id}" ${crate.enabled ? "" : "disabled"} type="button">Buy Key</button><button class="btn btn-small" data-crate-preview="${crate.id}" type="button">Rewards Preview</button></div>
         </article>`).join("")}</div>`);
     }
 
@@ -3358,6 +3427,33 @@
         image,
         alt: index === 0 ? safeText(preview?.alt) || fallbackAlt : `${safeText(preview?.name) || fallbackAlt} preview ${index + 1}`
       }));
+    }
+
+    function renderKitContent(preview) {
+      const equipment = Array.isArray(preview?.equipment) ? preview.equipment : [];
+      const otherItems = Array.isArray(preview?.otherItems) ? preview.otherItems : [];
+      if (!equipment.length && !otherItems.length) return "";
+      const equipmentHTML = equipment.length ? `<div class="kit-section">
+        <h4>Equipment and Enchantments</h4>
+        <ul class="kit-list">
+          ${equipment.map(item => {
+            const itemName = safeText(item?.name || item);
+            const enchants = Array.isArray(item?.enchants) ? item.enchants.map(safeText).filter(Boolean) : [];
+            return `<li class="kit-entry"><strong>${escapeHTML(itemName)}</strong>${enchants.length ? `<span>↳ ${escapeHTML(enchants.join(" · "))}</span>` : ""}</li>`;
+          }).join("")}
+        </ul>
+      </div>` : "";
+      const otherItemsHTML = otherItems.length ? `<div class="kit-section">
+        <h4>Other Items</h4>
+        <ul class="kit-list">
+          ${otherItems.map(item => `<li class="kit-entry"><strong>${escapeHTML(safeText(item))}</strong></li>`).join("")}
+        </ul>
+      </div>` : "";
+      return `<div class="kit-content">
+        <h3>${escapeHTML(safeText(preview?.kitTitle) || `${safeText(preview?.name) || "Rank"} Kit`)}</h3>
+        ${equipmentHTML}
+        ${otherItemsHTML}
+      </div>`;
     }
 
     function safeCarouselId(value) {
@@ -3798,8 +3894,8 @@
     }
 
     function teamStatHeaders(tabId) {
-      if (tabId === "overall") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡️️</span><span>Kills</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span aria-hidden="true">🏳️</span><span>Overall</span></span></th>`;
-      if (tabId === "kills") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡️️</span><span>Kills</span></span></th>`;
+      if (tabId === "overall") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡</span><span>Kills</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span aria-hidden="true">🏳️</span><span>Overall</span></span></th>`;
+      if (tabId === "kills") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡</span><span>Kills</span></span></th>`;
       if (tabId === "balance") return `<th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th>`;
       return `<th><span class="leaderboard-stat-heading leaderboard-stat-members"><span aria-hidden="true">👤</span><span>Members</span></span></th>`;
     }
@@ -3894,7 +3990,7 @@
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3>
         <div class="podium-stats team-podium-stats">
           ${tabId === "overall"
-            ? [["🗡️️ KILLS", item.formattedKills, "kills"], ["$ BALANCE", item.formattedBalance, "balance"], ["👤 MEMBERS", item.memberCount, "members"], ["🏳️ OVERALL", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
+            ? [["🗡 KILLS", item.formattedKills, "kills"], ["$ BALANCE", item.formattedBalance, "balance"], ["👤 MEMBERS", item.memberCount, "members"], ["🏳️ OVERALL", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
             : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
         </div>
         <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
@@ -4588,6 +4684,7 @@
         carouselId: `rank-${rank.id}`,
         accent: preview.accent || rank.color,
         alt: preview.alt,
+        kitContent: preview,
         actionHTML: `<button class="btn btn-primary" data-add-rank="${rank.id}" type="button">Add to Cart</button>`
       });
     }
@@ -4608,7 +4705,8 @@
       });
     }
 
-    function openPreviewModal({ title, name, subtitle, items, carouselId = "preview", accent, alt, actionHTML = "" }) {
+    function openPreviewModal({ title, name, subtitle, items, carouselId = "preview", accent, alt, kitContent = null, actionHTML = "" }) {
+      const kitHTML = kitContent ? renderKitContent(kitContent) : "";
       openModal(title, `<div class="preview-card" style="--preview-accent:${escapeHTML(accent || "#8b5cf6")}">
         <div class="preview-title-row">
           <div>
@@ -4623,7 +4721,8 @@
           accent: accent || "#8b5cf6",
           fallbackAlt: alt || `${name} preview image`
         })}
-        <p class="preview-note">Preview image is displayed contained at original proportions. Replace the placeholder path with your supplied image for this exact item.</p>
+        ${kitHTML}
+        ${kitHTML ? "" : `<p class="preview-note">Preview image is displayed contained at original proportions. Replace the placeholder path with your supplied image for this exact item.</p>`}
         ${actionHTML ? `<div class="modal-actions">${actionHTML}</div>` : ""}
       </div>`);
       initCarousels(el.modalBody);
