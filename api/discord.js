@@ -26,9 +26,11 @@ const VALID_ABANDONED_ITEM_TYPES = new Set(["rank", "crate", "credits"]);
 const DISCORD_TIMEOUT_MS = 8 * 1000;
 const ANNOUNCEMENT_CACHE_TTL_MS = 120 * 1000;
 const DISCORD_GUILD_META_CACHE_TTL_MS = 10 * 60 * 1000;
+const SERVER_STATUS_CACHE_TTL_MS = 60 * 1000;
 const DEFAULT_ROLE_COLOR = "#9b8cff";
 let announcementCache = { expiresAt: 0, data: null };
 let guildMetaCache = { expiresAt: 0, roles: new Map(), channels: new Map() };
+let serverStatusCache = { expiresAt: 0, data: null };
 
 function clientKey(req) {
   return String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
@@ -522,6 +524,67 @@ async function handlePurchase(req, res) {
   }
 }
 
+function normalizeServerStatusPayload(payload) {
+  const online = Boolean(payload?.online);
+  const playersOnline = Number(payload?.players?.online);
+  const playersMax = Number(payload?.players?.max);
+  return {
+    success: true,
+    data: {
+      online,
+      playersOnline: online && Number.isFinite(playersOnline) ? Math.max(0, Math.trunc(playersOnline)) : null,
+      playersMax: online && Number.isFinite(playersMax) ? Math.max(0, Math.trunc(playersMax)) : null,
+      source: "mcsrvstat"
+    },
+    cached: false
+  };
+}
+
+async function fetchMinecraftServerStatus() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DISCORD_TIMEOUT_MS);
+  try {
+    const response = await fetch("https://api.mcsrvstat.us/3/devourmc.fun", {
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new RequestError("Minecraft server status lookup failed.", 502, "SERVER_STATUS_FAILED");
+    }
+    return normalizeServerStatusPayload(await response.json());
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function handleServerStatus(req, res) {
+  if (req.method !== "GET") {
+    res.status(405).json({ success: false, error: "Method not allowed." });
+    return;
+  }
+
+  try {
+    if (serverStatusCache.expiresAt > Date.now() && serverStatusCache.data) {
+      res.status(200).json({ ...serverStatusCache.data, cached: true });
+      return;
+    }
+
+    const data = await fetchMinecraftServerStatus();
+    serverStatusCache = {
+      expiresAt: Date.now() + SERVER_STATUS_CACHE_TTL_MS,
+      data
+    };
+    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+    res.status(200).json(data);
+  } catch (error) {
+    console.warn("Minecraft server status lookup failed:", error?.code || error?.message || "unknown");
+    res.status(502).json({
+      success: false,
+      error: "Server status is temporarily unavailable."
+    });
+  }
+}
+
 async function handleAbandonedCheckout(req, res) {
   if (!methodGuard(req, res)) return;
 
@@ -590,6 +653,8 @@ module.exports = async function handler(req, res) {
   switch (action) {
     case "announcements":
       return handleAnnouncements(req, res);
+    case "status":
+      return handleServerStatus(req, res);
     case "media-application":
       return handleMediaApplication(req, res);
     case "support":

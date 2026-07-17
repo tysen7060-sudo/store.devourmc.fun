@@ -1656,7 +1656,13 @@
     .podium-stat-value.leaderboard-stat-overall,
     .podium-stat-label.leaderboard-stat-overall,
     .leaderboard-stat-heading.leaderboard-stat-overall { color: #c084fc; }
-    .podium-stats.overall-stats .podium-stat-value:not(.leaderboard-stat-overall) { color: #fff; }
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-kills,
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-money,
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-deaths,
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-gems,
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-credits,
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-playtime { color: var(--text); }
+    .player-leaderboard-table .leaderboard-value.leaderboard-stat-overall { color: #c084fc; }
     .rank-top-1 { color: var(--warning); }
     .rank-top-2 { color: var(--neon); }
     .rank-top-3 { color: var(--bright); }
@@ -2224,7 +2230,7 @@
 
     const API_CONFIG = {
       endpoints: {
-        serverStatus: "/api/status",
+        serverStatus: "/api/discord?action=status",
         topDonators: "/api/donators"
       }
     };
@@ -2433,6 +2439,7 @@
     };
 
     let leaderboardRefreshTimer = null;
+    let serverStatusRefreshTimer = null;
 
     const el = {
       modal: document.getElementById("modal"),
@@ -2914,6 +2921,7 @@
       document.getElementById("categoryGrid").innerHTML = categories.map(([icon, title, desc, href]) => `<article class="card home-feature-card reveal"><div class="card-icon">${icon}</div><h3>${title}</h3><p>${desc}</p><a class="btn btn-small" href="${href}" ${String(href).startsWith("http") ? `target="_blank" rel="noopener noreferrer"` : ""}>Open</a></article>`).join("");
       initCarousels(document.getElementById("page-home"));
       fetchServerStatus();
+      startServerStatusRefresh();
       loadDiscordAnnouncements();
     }
 
@@ -3869,7 +3877,7 @@
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3>
         <div class="podium-stats team-podium-stats">
           ${tabId === "overall"
-            ? [["Kills", item.formattedKills, ""], ["Balance", item.formattedBalance, ""], ["Overall", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
+            ? [["🗡 Kills", item.formattedKills, ""], ["$ Balance", item.formattedBalance, ""], ["👤 Members", item.memberCount, ""], ["🏳️ Overall", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
             : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
         </div>
         <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
@@ -4352,21 +4360,69 @@
       return `<div class="card"><div class="skeleton" style="width:70%"></div><br><div class="skeleton"></div><br><div class="skeleton" style="width:86%"></div><br><div class="skeleton" style="width:55%"></div></div>`;
     }
 
+    function extractStatusPlayerCount(payload) {
+      const candidates = [
+        payload?.data?.players?.online,
+        payload?.data?.playersOnline,
+        payload?.data?.onlinePlayers,
+        payload?.players?.online,
+        payload?.playersOnline,
+        payload?.onlinePlayers
+      ];
+      for (const value of candidates) {
+        if (typeof value === "boolean" || value === null || value === undefined) continue;
+        const number = Number(value);
+        if (Number.isFinite(number) && number >= 0) return Math.trunc(number);
+      }
+      return null;
+    }
+
+    function extractServerOnline(payload) {
+      const candidates = [
+        payload?.data?.online,
+        payload?.data?.status,
+        payload?.online,
+        payload?.status
+      ];
+      for (const value of candidates) {
+        if (typeof value === "boolean") return value;
+        if (typeof value === "string") {
+          const normalized = value.trim().toLowerCase();
+          if (["online", "up", "true"].includes(normalized)) return true;
+          if (["offline", "down", "false"].includes(normalized)) return false;
+        }
+      }
+      return null;
+    }
+
     async function fetchServerStatus() {
-      // Future Minecraft server status API integration. Demo data below is intentionally local and does not make a fake external request.
       const dot = document.getElementById("statusDot");
       const text = document.getElementById("statusText");
       const playersEl = document.getElementById("statusPlayers");
       if (!dot || !text || !playersEl) return;
+      dot.classList.remove("online", "offline");
       try {
-        await new Promise(resolve => setTimeout(resolve, 700));
-        text.textContent = "DevourMC Network";
+        const response = await fetch(API_CONFIG.endpoints.serverStatus, {
+          headers: { "Accept": "application/json" }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload?.success === false) throw new Error("Server status unavailable");
+        const online = extractServerOnline(payload);
+        const playerCount = extractStatusPlayerCount(payload);
+        if (online === false) {
+          text.textContent = "OFFLINE";
+          dot.classList.add("offline");
+          playersEl.textContent = "OFFLINE";
+          return;
+        }
+        if (online !== true && playerCount === null) throw new Error("Server status unavailable");
+        text.textContent = "ONLINE";
         dot.classList.add("online");
-        playersEl.textContent = "Players Online"; // Demo player count only. Replace with live API data later.
+        playersEl.textContent = playerCount === 1 ? "1 PLAYER" : `${playerCount ?? "?"} PLAYERS`;
       } catch {
-        text.textContent = "Status unavailable";
+        text.textContent = "STATUS UNAVAILABLE";
         dot.classList.add("offline");
-        playersEl.textContent = "Unavailable";
+        playersEl.textContent = "UNAVAILABLE";
       }
     }
 
@@ -4872,6 +4928,13 @@
         const page = currentPage();
         if (page === "leaderboards") loadLeaderboard({ silent: true });
         if (page === "teams") loadTeamPageLeaderboard({ silent: true });
+      }, 60000);
+    }
+
+    function startServerStatusRefresh() {
+      if (serverStatusRefreshTimer) clearInterval(serverStatusRefreshTimer);
+      serverStatusRefreshTimer = setInterval(() => {
+        if (currentPage() === "home") fetchServerStatus();
       }, 60000);
     }
 
