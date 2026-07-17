@@ -16,6 +16,12 @@ DISCORD_BOT_TOKEN=
 DISCORD_ABANDONED_CHECKOUT_CHANNEL_ID=
 DISCORD_GUILD_ID=
 DISCORD_ANNOUNCEMENTS_CHANNEL_ID=
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+APP_BASE_URL=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
 Do not add real secrets to Git files, browser JavaScript, HTML, URLs, query parameters, logs, or responses.
@@ -71,6 +77,57 @@ Discord-related website actions are consolidated into one Vercel Function to sta
 /api/discord?action=purchase
 /api/discord?action=abandoned-checkout
 ```
+
+## Razorpay Standard Checkout
+
+Payment actions are handled by the existing consolidated Vercel Function through the `/api/payments` rewrite. This keeps the deployed Serverless Function count within the Vercel Hobby limit.
+
+```text
+POST /api/payments?action=create-order
+POST /api/payments?action=verify-payment
+POST /api/payments?action=webhook
+GET  /api/payments?action=order-status&orderId=...
+```
+
+Set these in Vercel Project -> Settings -> Environment Variables for Production, Preview, and Development:
+
+- `RAZORPAY_KEY_ID`: Razorpay public key ID. This is the only Razorpay value returned to the browser for checkout.
+- `RAZORPAY_KEY_SECRET`: Razorpay secret used server-side to create orders and verify payment signatures.
+- `RAZORPAY_WEBHOOK_SECRET`: Secret configured on the Razorpay webhook endpoint.
+- `APP_BASE_URL`: Public site URL, for example `https://devourmc.fun`.
+- `UPSTASH_REDIS_REST_URL`: Persistent Redis REST URL used for order records and idempotency.
+- `UPSTASH_REDIS_REST_TOKEN`: Persistent Redis REST token.
+
+Do not prefix secret values with `VITE_`, `NEXT_PUBLIC_`, or `PUBLIC_`. Do not commit real Razorpay, Redis, or Discord secrets.
+
+### Razorpay Webhook Setup
+
+In the Razorpay dashboard, configure the webhook URL:
+
+```text
+https://your-domain.example/api/payments?action=webhook
+```
+
+Use Test Mode first. Add the same webhook secret to `RAZORPAY_WEBHOOK_SECRET` in Vercel. Enable successful payment events such as `payment.captured`.
+
+### Server-Side Pricing and Storage
+
+The browser sends only Minecraft username, product IDs, quantities, and coupon code. The Vercel Function reloads trusted store prices from server-side configuration, validates `LAUNCH20`, recalculates subtotal, discount, and final payable amount, then creates the Razorpay order in paise.
+
+Persistent storage is required before payments are accepted. The implementation uses Upstash Redis REST for:
+
+- internal order records
+- Razorpay order to internal order mapping
+- Razorpay payment idempotency keys
+- paid/fulfilled/purchase-notified state
+
+If Upstash is not configured, payment order creation fails safely instead of pretending production-safe fulfilment exists.
+
+### Payment Fulfilment Rules
+
+The website does not mark a checkout complete when the customer clicks Continue to Payment. It tracks separate states for checkout started, payment started, and payment confirmed. Only server-side Razorpay signature verification or a verified Razorpay webhook can mark the order paid.
+
+The Purchase Discord notification is sent only after verified payment. Duplicate frontend verification, webhook retries, and refreshes are guarded by persistent Razorpay payment ID idempotency keys.
 
 ## Request Flow
 

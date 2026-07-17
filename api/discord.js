@@ -1,5 +1,7 @@
 "use strict";
 
+const crypto = require("crypto");
+
 const {
   RequestError,
   embed,
@@ -28,6 +30,38 @@ const ANNOUNCEMENT_CACHE_TTL_MS = 120 * 1000;
 const DISCORD_GUILD_META_CACHE_TTL_MS = 10 * 60 * 1000;
 const SERVER_STATUS_CACHE_TTL_MS = 60 * 1000;
 const DEFAULT_ROLE_COLOR = "#9b8cff";
+const PAYMENT_STORAGE_PREFIX = "devourmc:payment-order:";
+const RAZORPAY_ORDER_PREFIX = "devourmc:razorpay-order:";
+const RAZORPAY_PAYMENT_PREFIX = "devourmc:razorpay-payment:";
+const PAYMENT_STORAGE_REQUIRED = "Persistent payment storage is not configured.";
+const STORE_PRODUCTS = {
+  rank: {
+    elite: { id: "elite", name: "ELITE Rank", category: "Rank", pricePaise: 9900 },
+    cosmic: { id: "cosmic", name: "COSMIC Rank", category: "Rank", pricePaise: 19900 },
+    archon: { id: "archon", name: "ARCHON Rank", category: "Rank", pricePaise: 24900 },
+    celestial: { id: "celestial", name: "CELESTIAL Rank", category: "Rank", pricePaise: 29900 },
+    ascendant: { id: "ascendant", name: "ASCENDANT Rank", category: "Rank", pricePaise: 34900 },
+    custom: { id: "custom", name: "CUSTOM Rank", category: "Rank", pricePaise: 49900 }
+  },
+  crate: {
+    titan: { id: "titan", name: "Titan Crate Key", category: "Crate", pricePaise: 3900 },
+    reaper: { id: "reaper", name: "Reaper Crate Key", category: "Crate", pricePaise: 5900 },
+    omega: { id: "omega", name: "Omega Crate Key", category: "Crate", pricePaise: 9900 },
+    royal: { id: "royal", name: "Royal Crate Key", category: "Crate", pricePaise: 12900 }
+  }
+};
+const SERVER_COUPONS = [
+  {
+    code: "LAUNCH20",
+    discountType: "percentage",
+    discountValue: 20,
+    active: true,
+    minimumOrderAmountPaise: 0,
+    maximumDiscountAmountPaise: null,
+    expiresAt: null,
+    applicableCategories: ["all"]
+  }
+];
 let announcementCache = { expiresAt: 0, data: null };
 let guildMetaCache = { expiresAt: 0, roles: new Map(), channels: new Map() };
 let serverStatusCache = { expiresAt: 0, data: null };
@@ -269,6 +303,277 @@ function positiveQuantity(value) {
   return quantity;
 }
 
+function validMinecraftUsername(value) {
+  return /^[A-Za-z0-9_]{3,16}$/.test(String(value || ""));
+}
+
+function paymentStorageConfigured() {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+}
+
+async function paymentStoreCommand(args) {
+  if (!paymentStorageConfigured()) {
+    throw new RequestError(PAYMENT_STORAGE_REQUIRED, 500, "PAYMENT_STORAGE_NOT_CONFIGURED");
+  }
+  const response = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(args)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.error) {
+    throw new RequestError("Payment storage request failed.", 502, "PAYMENT_STORAGE_FAILED");
+  }
+  return payload.result;
+}
+
+async function setPaymentRecord(key, value) {
+  await paymentStoreCommand(["SET", key, JSON.stringify(value)]);
+}
+
+async function getPaymentRecord(key) {
+  const value = await paymentStoreCommand(["GET", key]);
+  if (!value) return null;
+  try {
+    return typeof value === "string" ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
+
+async function setPaymentIdempotencyKey(key, value) {
+  const result = await paymentStoreCommand(["SET", key, value, "NX"]);
+  return result === "OK";
+}
+
+function paiseToRupees(value) {
+  return Math.max(0, Math.round(Number(value) || 0)) / 100;
+}
+
+function formatInrPaise(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2
+  }).format(paiseToRupees(value));
+}
+
+function normalizeCouponCode(code) {
+  return String(code || "").trim().toUpperCase();
+}
+
+function findServerCoupon(code) {
+  const normalized = normalizeCouponCode(code);
+  if (!normalized) return null;
+  return SERVER_COUPONS.find(coupon => normalizeCouponCode(coupon.code) === normalized) || null;
+}
+
+function productCategoryKey(product) {
+  const category = String(product?.category || "").toLowerCase();
+  if (category === "rank") return "ranks";
+  if (category === "crate") return "crates";
+  if (category === "credits") return "credits";
+  return category || "unknown";
+}
+
+function couponAppliesToProduct(coupon, product) {
+  const categories = Array.isArray(coupon?.applicableCategories) ? coupon.applicableCategories : ["all"];
+  const normalized = categories.map(item => String(item || "").trim().toLowerCase()).filter(Boolean);
+  if (!normalized.length || normalized.includes("all")) return true;
+  const category = productCategoryKey(product);
+  return normalized.includes(category) || (category === "credits" && normalized.includes("credit-shop"));
+}
+
+function validateServerCoupon(coupon, products) {
+  if (!coupon) return { valid: false, couponCode: "", discountPaise: 0 };
+  const discountValue = Number(coupon.discountValue);
+  if (!coupon.active || coupon.discountType !== "percentage" || !Number.isFinite(discountValue) || discountValue <= 0 || discountValue > 100) {
+    return { valid: false, couponCode: "", discountPaise: 0 };
+  }
+  if (coupon.expiresAt) {
+    const expiresAt = new Date(coupon.expiresAt);
+    if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+      return { valid: false, couponCode: "", discountPaise: 0 };
+    }
+  }
+  const eligiblePaise = products.reduce((sum, item) => couponAppliesToProduct(coupon, item) ? sum + item.lineTotalPaise : sum, 0);
+  if (eligiblePaise <= 0 || eligiblePaise < Number(coupon.minimumOrderAmountPaise || 0)) {
+    return { valid: false, couponCode: "", discountPaise: 0 };
+  }
+  let discountPaise = Math.round(eligiblePaise * (discountValue / 100));
+  if (coupon.maximumDiscountAmountPaise !== null && coupon.maximumDiscountAmountPaise !== undefined) {
+    discountPaise = Math.min(discountPaise, Number(coupon.maximumDiscountAmountPaise) || 0);
+  }
+  return {
+    valid: true,
+    couponCode: normalizeCouponCode(coupon.code),
+    discountType: coupon.discountType,
+    discountValue,
+    discountPaise: Math.max(0, discountPaise)
+  };
+}
+
+function normalizePaymentItem(item) {
+  const type = text(item?.type, 30).toLowerCase();
+  const id = text(item?.id, 80).toLowerCase();
+  const quantity = positiveQuantity(item?.quantity ?? item?.qty);
+  if (type === "rank") {
+    const product = STORE_PRODUCTS.rank[id];
+    if (!product) throw new RequestError("Invalid rank product.", 400, "INVALID_PRODUCT");
+    return { ...product, type, quantity: 1, lineTotalPaise: product.pricePaise };
+  }
+  if (type === "crate") {
+    const product = STORE_PRODUCTS.crate[id];
+    if (!product) throw new RequestError("Invalid crate product.", 400, "INVALID_PRODUCT");
+    const safeQuantity = Math.min(quantity, 64);
+    return { ...product, type, quantity: safeQuantity, lineTotalPaise: product.pricePaise * safeQuantity };
+  }
+  if (type === "credits") {
+    const match = /^credits-(\d+)$/.exec(id);
+    const amount = match ? Number(match[1]) : NaN;
+    if (!Number.isFinite(amount) || amount < 50 || amount > 5000 || amount % 50 !== 0) {
+      throw new RequestError("Invalid credits product.", 400, "INVALID_PRODUCT");
+    }
+    const credits = (amount / 50) * 165;
+    const safeQuantity = Math.min(quantity, 99);
+    const pricePaise = amount * 100;
+    return {
+      id,
+      type,
+      name: `${credits} DevourMC Credits`,
+      category: "Credits",
+      quantity: safeQuantity,
+      pricePaise,
+      lineTotalPaise: pricePaise * safeQuantity
+    };
+  }
+  throw new RequestError("Unsupported product type.", 400, "INVALID_PRODUCT");
+}
+
+function calculateTrustedOrder(body) {
+  const minecraftUsername = required(body.minecraftUsername || body.username, "Minecraft username");
+  if (!validMinecraftUsername(minecraftUsername)) {
+    throw new RequestError("Minecraft username is invalid.", 400, "VALIDATION_ERROR");
+  }
+  const requestedItems = Array.isArray(body.items) ? body.items : [];
+  if (!requestedItems.length) throw new RequestError("Cart is empty.", 400, "VALIDATION_ERROR");
+  const products = requestedItems.map(normalizePaymentItem);
+  const subtotalPaise = products.reduce((sum, item) => sum + item.lineTotalPaise, 0);
+  const requestedCoupon = normalizeCouponCode(body.couponCode);
+  const coupon = findServerCoupon(requestedCoupon);
+  const couponResult = requestedCoupon ? validateServerCoupon(coupon, products) : { valid: false, couponCode: "", discountPaise: 0 };
+  if (requestedCoupon && !couponResult.valid) {
+    throw new RequestError("Coupon is invalid or not applicable.", 400, "COUPON_INVALID");
+  }
+  const discountPaise = Math.min(subtotalPaise, couponResult.discountPaise || 0);
+  const finalTotalPaise = Math.max(0, subtotalPaise - discountPaise);
+  if (subtotalPaise <= 0 || finalTotalPaise <= 0) {
+    throw new RequestError("Order total must be greater than zero.", 400, "INVALID_TOTAL");
+  }
+  return {
+    minecraftUsername,
+    products,
+    currency: "INR",
+    subtotalPaise,
+    couponCode: couponResult.couponCode || "",
+    discountType: couponResult.discountType || "",
+    discountValue: couponResult.discountValue || 0,
+    discountPaise,
+    finalTotalPaise
+  };
+}
+
+function paymentEnv() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new RequestError("Razorpay is not configured.", 500, "RAZORPAY_NOT_CONFIGURED");
+  }
+  return { keyId, keySecret };
+}
+
+async function razorpayRequest(path, body) {
+  const { keyId, keySecret } = paymentEnv();
+  const response = await fetch(`https://api.razorpay.com/v1${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.warn("Razorpay request failed:", response.status, payload?.error?.code || "unknown");
+    throw new RequestError("Payment order could not be created.", 502, "RAZORPAY_REQUEST_FAILED");
+  }
+  return payload;
+}
+
+function verifyRazorpayCheckoutSignature(orderId, paymentId, signature) {
+  const { keySecret } = paymentEnv();
+  const expected = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+  return timingSafeEqual(expected, signature);
+}
+
+function timingSafeEqual(expected, received) {
+  const a = Buffer.from(String(expected || ""), "utf8");
+  const b = Buffer.from(String(received || ""), "utf8");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+async function readRawBody(req, maxBytes = 256 * 1024) {
+  if (Buffer.isBuffer(req.body)) return req.body;
+  if (typeof req.body === "string") return Buffer.from(req.body, "utf8");
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) throw new RequestError("Request body is too large.", 413, "BODY_TOO_LARGE");
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
+}
+
+function verifyRazorpayWebhookSignature(rawBody, signature) {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) throw new RequestError("Razorpay webhook is not configured.", 500, "WEBHOOK_NOT_CONFIGURED");
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  return timingSafeEqual(expected, signature);
+}
+
+function internalOrderId() {
+  return `DMC-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+function safeOrderResponse(order) {
+  return {
+    internalOrderId: order.internalOrderId,
+    razorpayOrderId: order.razorpayOrderId,
+    status: order.status,
+    currency: order.currency,
+    amount: order.finalTotalPaise,
+    subtotal: paiseToRupees(order.subtotalPaise),
+    discount: paiseToRupees(order.discountPaise),
+    finalTotal: paiseToRupees(order.finalTotalPaise),
+    couponCode: order.couponCode || "",
+    products: order.products.map(item => ({
+      id: item.id,
+      type: item.type,
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity
+    }))
+  };
+}
+
 function normalizeAbandonedItem(item) {
   const type = text(item?.type, 30).toLowerCase();
   if (!VALID_ABANDONED_ITEM_TYPES.has(type)) {
@@ -480,6 +785,31 @@ async function handleSupport(req, res) {
   }
 }
 
+async function sendPurchaseDiscordNotification(body) {
+  const products = Array.isArray(body.products) ? body.products : [];
+  await sendDiscordWebhook(process.env.DISCORD_PURCHASE_WEBHOOK_URL, {
+    embeds: [
+      embed("New DevourMC Purchase", [
+        field("Player", required(body.minecraftUsername, "Minecraft username"), true),
+        field("Customer Email", text(body.email) || "Not collected", true),
+        field("Customer Discord", text(body.discordUsername) || "Not collected", true),
+        field("Products", products.length ? products.map(item => `${text(item.name)} x ${Number(item.quantity) || 1} (${text(item.category) || "item"})`).join("\n") : "Not provided"),
+        field("Subtotal", `${text(body.currency || "INR")} ${text(body.subtotal)}`, true),
+        field("Coupon", text(body.couponCode) || "None", true),
+        field("Discount", text(body.discountAmount || body.discountValue) || "None", true),
+        field("Final Paid", `${text(body.currency || "INR")} ${text(body.finalPaid)}`, true),
+        field("Internal Order ID", text(body.internalOrderId || body.orderId || body.orderReference), true),
+        field("Razorpay Order ID", text(body.razorpayOrderId) || "Not provided", true),
+        field("Payment ID", text(body.paymentId) || "Not provided", true),
+        field("Payment Status", text(body.paymentStatus), true),
+        field("Website Order Reference", text(body.orderReference || body.internalOrderId || body.orderId)),
+        field("Date", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })),
+        field("Notes", multiline(body.notes, 500))
+      ])
+    ]
+  });
+}
+
 async function handlePurchase(req, res) {
   if (!methodGuard(req, res)) return;
   try {
@@ -495,26 +825,7 @@ async function handlePurchase(req, res) {
       return;
     }
 
-    const products = Array.isArray(body.products) ? body.products : [];
-    await sendDiscordWebhook(process.env.DISCORD_PURCHASE_WEBHOOK_URL, {
-      embeds: [
-        embed("New DevourMC Purchase", [
-          field("Player", required(body.minecraftUsername, "Minecraft username"), true),
-          field("Customer Email", text(body.email) || "Not collected", true),
-          field("Customer Discord", text(body.discordUsername) || "Not collected", true),
-          field("Products", products.length ? products.map(item => `${text(item.name)} x ${Number(item.quantity) || 1} (${text(item.category) || "item"})`).join("\n") : "Not provided"),
-          field("Subtotal", `${text(body.currency || "INR")} ${text(body.subtotal)}`, true),
-          field("Coupon", text(body.couponCode) || "None", true),
-          field("Discount", text(body.discountAmount || body.discountValue) || "None", true),
-          field("Final Paid", `${text(body.currency || "INR")} ${text(body.finalPaid)}`, true),
-          field("Order ID", orderId, true),
-          field("Payment Status", text(body.paymentStatus), true),
-          field("Website Order Reference", text(body.orderReference) || orderId),
-          field("Date", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })),
-          field("Notes", multiline(body.notes, 500))
-        ])
-      ]
-    });
+    await sendPurchaseDiscordNotification({ ...body, orderId });
 
     deliveredPurchases.add(orderId);
     res.status(200).json({ success: true });
@@ -585,6 +896,181 @@ async function handleServerStatus(req, res) {
   }
 }
 
+async function handleCreateRazorpayOrder(req, res) {
+  if (!methodGuard(req, res)) return;
+  try {
+    if (!paymentStorageConfigured()) {
+      throw new RequestError(PAYMENT_STORAGE_REQUIRED, 500, "PAYMENT_STORAGE_NOT_CONFIGURED");
+    }
+    const body = await readJsonBody(req);
+    const trusted = calculateTrustedOrder(body);
+    const id = internalOrderId();
+    const receipt = id.slice(0, 40);
+    const razorpayOrder = await razorpayRequest("/orders", {
+      amount: trusted.finalTotalPaise,
+      currency: trusted.currency,
+      receipt,
+      notes: {
+        internalOrderId: id,
+        minecraftUsername: trusted.minecraftUsername
+      }
+    });
+    if (!razorpayOrder?.id) {
+      throw new RequestError("Payment order could not be created.", 502, "RAZORPAY_ORDER_FAILED");
+    }
+    const now = new Date().toISOString();
+    const order = {
+      internalOrderId: id,
+      razorpayOrderId: razorpayOrder.id,
+      minecraftUsername: trusted.minecraftUsername,
+      products: trusted.products,
+      currency: trusted.currency,
+      subtotalPaise: trusted.subtotalPaise,
+      couponCode: trusted.couponCode,
+      discountType: trusted.discountType,
+      discountValue: trusted.discountValue,
+      discountPaise: trusted.discountPaise,
+      finalTotalPaise: trusted.finalTotalPaise,
+      status: "created",
+      fulfilled: false,
+      purchaseNotified: false,
+      paymentId: "",
+      createdAt: now,
+      updatedAt: now
+    };
+    await setPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${id}`, order);
+    await setPaymentRecord(`${RAZORPAY_ORDER_PREFIX}${razorpayOrder.id}`, { internalOrderId: id });
+
+    const { keyId } = paymentEnv();
+    res.status(200).json({
+      success: true,
+      keyId,
+      order: safeOrderResponse(order)
+    });
+  } catch (error) {
+    console.warn("Razorpay order creation failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Payment order could not be created.");
+  }
+}
+
+async function finalizePaidOrder(order, paymentId, source = "verification") {
+  const latest = await getPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${order.internalOrderId}`) || order;
+  if (latest.status === "paid" && latest.fulfilled && latest.purchaseNotified) {
+    return { order: latest, duplicate: true };
+  }
+
+  const idempotencyKey = `${RAZORPAY_PAYMENT_PREFIX}${paymentId}`;
+  const firstPaymentUse = await setPaymentIdempotencyKey(idempotencyKey, latest.internalOrderId);
+  const now = new Date().toISOString();
+  const updated = {
+    ...latest,
+    status: "paid",
+    paymentId,
+    verifiedBy: source,
+    paidAt: latest.paidAt || now,
+    updatedAt: now
+  };
+
+  if (firstPaymentUse && !latest.purchaseNotified) {
+    try {
+      await sendPurchaseDiscordNotification({
+        minecraftUsername: updated.minecraftUsername,
+        products: updated.products,
+        subtotal: formatInrPaise(updated.subtotalPaise),
+        couponCode: updated.couponCode || "None",
+        discountAmount: formatInrPaise(updated.discountPaise),
+        finalPaid: formatInrPaise(updated.finalTotalPaise),
+        currency: updated.currency,
+        internalOrderId: updated.internalOrderId,
+        razorpayOrderId: updated.razorpayOrderId,
+        paymentId,
+        paymentStatus: "verified"
+      });
+      updated.purchaseNotified = true;
+    } catch (error) {
+      console.warn("Verified purchase Discord notification failed:", error?.code || error?.message || "unknown");
+    }
+  }
+
+  updated.fulfilled = true;
+  await setPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${updated.internalOrderId}`, updated);
+  return { order: updated, duplicate: !firstPaymentUse };
+}
+
+async function handleVerifyRazorpayPayment(req, res) {
+  if (!methodGuard(req, res)) return;
+  try {
+    const body = await readJsonBody(req, 16 * 1024);
+    const internalId = required(body.internalOrderId, "Internal order ID");
+    const razorpayPaymentId = required(body.razorpay_payment_id, "Razorpay payment ID");
+    const razorpayOrderId = required(body.razorpay_order_id, "Razorpay order ID");
+    const razorpaySignature = required(body.razorpay_signature, "Razorpay signature");
+    const order = await getPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${internalId}`);
+    if (!order) throw new RequestError("Order was not found.", 404, "ORDER_NOT_FOUND");
+    if (order.razorpayOrderId !== razorpayOrderId) {
+      throw new RequestError("Payment order does not match.", 400, "ORDER_MISMATCH");
+    }
+    if (!verifyRazorpayCheckoutSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
+      throw new RequestError("Payment could not be verified.", 400, "SIGNATURE_INVALID");
+    }
+    const result = await finalizePaidOrder(order, razorpayPaymentId, "checkout");
+    res.status(200).json({
+      success: true,
+      verified: true,
+      duplicate: result.duplicate,
+      order: safeOrderResponse(result.order)
+    });
+  } catch (error) {
+    console.warn("Razorpay payment verification failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Payment could not be verified.");
+  }
+}
+
+async function handleRazorpayWebhook(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    res.status(405).json({ success: false, error: "Method not allowed." });
+    return;
+  }
+  try {
+    const rawBody = await readRawBody(req);
+    const signature = text(req.headers["x-razorpay-signature"], 200);
+    if (!verifyRazorpayWebhookSignature(rawBody, signature)) {
+      throw new RequestError("Webhook signature is invalid.", 400, "WEBHOOK_SIGNATURE_INVALID");
+    }
+    const event = JSON.parse(rawBody.toString("utf8") || "{}");
+    const eventType = text(event?.event, 120);
+    if (eventType === "payment.captured") {
+      const payment = event?.payload?.payment?.entity || {};
+      const paymentId = text(payment.id, 120);
+      const razorpayOrderId = text(payment.order_id, 120);
+      if (paymentId && razorpayOrderId) {
+        const mapping = await getPaymentRecord(`${RAZORPAY_ORDER_PREFIX}${razorpayOrderId}`);
+        if (mapping?.internalOrderId) {
+          const order = await getPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${mapping.internalOrderId}`);
+          if (order) await finalizePaidOrder(order, paymentId, "webhook");
+        }
+      }
+    }
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.warn("Razorpay webhook handling failed:", error?.code || error?.message || "unknown");
+    safeError(res, error, "Webhook could not be processed.");
+  }
+}
+
+async function handlePaymentOrderStatus(req, res) {
+  if (!methodGuard(req, res, "GET")) return;
+  try {
+    const internalId = required(req.query?.orderId, "Order ID");
+    const order = await getPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${internalId}`);
+    if (!order) throw new RequestError("Order was not found.", 404, "ORDER_NOT_FOUND");
+    res.status(200).json({ success: true, order: safeOrderResponse(order) });
+  } catch (error) {
+    safeError(res, error, "Order status could not be loaded.");
+  }
+}
+
 async function handleAbandonedCheckout(req, res) {
   if (!methodGuard(req, res)) return;
 
@@ -601,6 +1087,17 @@ async function handleAbandonedCheckout(req, res) {
       return;
     }
     processingAbandonedSessions.add(sessionId);
+
+    const paymentOrderId = text(body.paymentOrderId, 120);
+    if (paymentOrderId && paymentStorageConfigured()) {
+      const order = await getPaymentRecord(`${PAYMENT_STORAGE_PREFIX}${paymentOrderId}`);
+      if (order?.status === "paid") {
+        rememberAbandonedSession(sessionId);
+        processingAbandonedSessions.delete(sessionId);
+        res.status(200).json({ success: true, paid: true });
+        return;
+      }
+    }
 
     const username = required(body.minecraftUsername || body.username, "Minecraft username");
     if (username.length > 32) {
@@ -639,7 +1136,8 @@ async function handleAbandonedCheckout(req, res) {
 
 module.exports = async function handler(req, res) {
   let body = null;
-  if (req.method !== "GET") {
+  const queryAction = text(req.query?.action, 80).toLowerCase();
+  if (req.method !== "GET" && queryAction !== "webhook") {
     try {
       body = await readJsonBody(req);
       req.body = body;
@@ -649,7 +1147,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  const action = text(req.query?.action || body?.action, 80).toLowerCase();
+  const action = text(queryAction || body?.action, 80).toLowerCase();
   switch (action) {
     case "announcements":
       return handleAnnouncements(req, res);
@@ -663,6 +1161,14 @@ module.exports = async function handler(req, res) {
       return handlePurchase(req, res);
     case "abandoned-checkout":
       return handleAbandonedCheckout(req, res);
+    case "create-order":
+      return handleCreateRazorpayOrder(req, res);
+    case "verify-payment":
+      return handleVerifyRazorpayPayment(req, res);
+    case "webhook":
+      return handleRazorpayWebhook(req, res);
+    case "order-status":
+      return handlePaymentOrderStatus(req, res);
     default:
       res.status(404).json({ success: false, error: "Unknown action." });
   }

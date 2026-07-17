@@ -17,6 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" href="./devourmc-logo.png" />
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script type="application/ld+json">
     {"@context":"https://schema.org","@type":"Organization","name":"DevourMC","url":"https://devourmc.fun","sameAs":["https://discord.gg/49A4cEBE2q"],"email":"devourmc.fun@gmail.com"}
   </script>
@@ -2358,24 +2359,44 @@
       { id: "custom", name: "CUSTOM", icon: "✦", price: 499, billing: "monthly", color: "#c084fc", badge: "ULTIMATE", custom: true, customPrefix: true, auctionListings: 14, homes: 14, vaults: 14, kit: "Sentinal Kit", commands: ["/sit", "/hat", "/ec", "/lay", "/craft", "/anvil", "/spin", "/crawl", "/disposal", "/nick", "/workbench", "/bellyflop", "/smithingtable", "/stonecutter"] }
     ];
 
-    const baseKitEquipment = rankName => [
-      { name: `${rankName} Helmet`, enchants: ["Prot IV", "Unb III"] },
-      { name: `${rankName} Chestplate`, enchants: ["Prot IV", "Unb III"] },
-      { name: `${rankName} Leggings`, enchants: ["Prot IV", "Unb III"] },
-      { name: `${rankName} Boots`, enchants: ["Prot IV", "Unb III"] },
+    const rankKitEquipment = (rankName, armorProtection = "Prot IV", extras = []) => [
+      { name: `${rankName} Helmet`, enchants: [armorProtection, "Unb III"] },
+      { name: `${rankName} Chestplate`, enchants: [armorProtection, "Unb III"] },
+      { name: `${rankName} Leggings`, enchants: [armorProtection, "Unb III"] },
+      { name: `${rankName} Boots`, enchants: [armorProtection, "Unb III"] },
       { name: `${rankName} Sword`, enchants: ["Sharp V", "Unb III"] },
-      { name: `${rankName} Pickaxe`, enchants: ["Eff V", "Unb III"] }
+      { name: `${rankName} Axe`, enchants: ["Sharp V", "Eff V", "Unb III"] },
+      { name: `${rankName} Pickaxe`, enchants: ["Eff V", "Unb III"] },
+      { name: `${rankName} Shovel`, enchants: ["Eff V", "Unb III"] },
+      { name: `${rankName} Hoe`, enchants: ["Eff V", "Unb III"] },
+      { name: `${rankName} Bow`, enchants: ["Power V", "Unb III"] },
+      { name: `${rankName} Shield`, enchants: ["Unb III"] },
+      ...extras
     ];
 
-    const baseKitItems = ["32x Ender Pearl", "32x Golden Apple"];
+    const customKitEquipment = [
+      { name: "Custom Helmet", enchants: ["Prot V", "Resp III", "Aqua", "Unb IV", "Mend"] },
+      { name: "Custom Chestplate", enchants: ["Prot V", "Unb IV", "Mend"] },
+      { name: "Custom Leggings", enchants: ["Prot V", "Swift Sneak III", "Unb IV", "Mend"] },
+      { name: "Custom Boots", enchants: ["Prot V", "Feather Falling IV", "Depth Strider III", "Unb IV", "Mend"] },
+      { name: "Custom Sword", enchants: ["Sharp VI", "Unb IV", "Mend"] },
+      { name: "Custom Axe", enchants: ["Sharp VI", "Eff V", "Unb IV", "Mend"] },
+      { name: "Custom Pickaxe", enchants: ["Eff VI", "Unb IV", "Mend"] },
+      { name: "Custom Shovel", enchants: ["Eff VI", "Unb IV", "Mend"] },
+      { name: "Custom Hoe", enchants: ["Eff VI", "Unb IV", "Mend"] },
+      { name: "Custom Bow", enchants: ["Power VI", "Unb IV", "Mend"] },
+      { name: "Custom Shield", enchants: ["Unb III"] },
+      { name: "Custom Mace", enchants: ["Density VI", "Windburst IV", "Unb IV"] },
+      { name: "Custom Trident", enchants: ["Riptide IV", "Unb III"] }
+    ];
 
     const rankPreviews = {
-      elite: { name: "ELITE", subtitle: "Kit Preview", images: ["/images/rank-kits/elite-kit-preview.png"], accent: "#22d3ee", alt: "Elite rank kit preview for DevourMC", kitTitle: "ELITE KIT", equipment: baseKitEquipment("Elite"), otherItems: baseKitItems },
-      cosmic: { name: "COSMIC", subtitle: "Kit Preview", images: ["/images/rank-kits/cosmic-kit-preview.png"], accent: "#facc15", alt: "Cosmic rank kit preview for DevourMC", kitTitle: "COSMIC KIT", equipment: baseKitEquipment("Cosmic"), otherItems: baseKitItems },
-      archon: { name: "ARCHON", subtitle: "Kit Preview", images: ["/images/rank-kits/archon-kit-preview.png"], accent: "#fb923c", alt: "Archon rank kit preview for DevourMC", kitTitle: "ARCHON KIT", equipment: baseKitEquipment("Archon"), otherItems: baseKitItems },
-      celestial: { name: "CELESTIAL", subtitle: "Kit Preview", images: ["/images/rank-kits/celestial-kit-preview.png"], accent: "#f43f5e", alt: "Celestial rank kit preview for DevourMC", kitTitle: "CELESTIAL KIT", equipment: baseKitEquipment("Celestial"), otherItems: baseKitItems },
-      ascendant: { name: "ASCENDANT", subtitle: "Kit Preview", images: ["/images/rank-kits/ascendant-kit-preview.png"], accent: "#a855f7", alt: "Ascendant rank kit preview for DevourMC", kitTitle: "ASCENDANT KIT", equipment: baseKitEquipment("Ascendant"), otherItems: baseKitItems },
-      custom: { name: "CUSTOM", subtitle: "Kit Preview", images: ["/images/rank-kits/custom-kit-preview.png"], accent: "#c084fc", alt: "Custom rank kit preview for DevourMC", kitTitle: "CUSTOM KIT", equipment: baseKitEquipment("Custom"), otherItems: baseKitItems }
+      elite: { name: "ELITE", subtitle: "Kit Preview", images: ["/images/rank-kits/elite-kit-preview.png"], accent: "#22d3ee", alt: "Elite rank kit preview for DevourMC", kitTitle: "ELITE KIT", equipment: rankKitEquipment("Elite") },
+      cosmic: { name: "COSMIC", subtitle: "Kit Preview", images: ["/images/rank-kits/cosmic-kit-preview.png"], accent: "#facc15", alt: "Cosmic rank kit preview for DevourMC", kitTitle: "COSMIC KIT", equipment: rankKitEquipment("Cosmic") },
+      archon: { name: "ARCHON", subtitle: "Kit Preview", images: ["/images/rank-kits/archon-kit-preview.png"], accent: "#fb923c", alt: "Archon rank kit preview for DevourMC", kitTitle: "ARCHON KIT", equipment: rankKitEquipment("Archon") },
+      celestial: { name: "CELESTIAL", subtitle: "Kit Preview", images: ["/images/rank-kits/celestial-kit-preview.png"], accent: "#f43f5e", alt: "Celestial rank kit preview for DevourMC", kitTitle: "CELESTIAL KIT", equipment: rankKitEquipment("Celestial") },
+      ascendant: { name: "ASCENDANT", subtitle: "Kit Preview", images: ["/images/rank-kits/ascendant-kit-preview.png"], accent: "#a855f7", alt: "Ascendant rank kit preview for DevourMC", kitTitle: "ASCENDANT KIT", equipment: rankKitEquipment("Ascendant", "Prot IV", [{ name: "Ascendant Mace", enchants: ["Breach IV", "Density V", "Unb III"] }, { name: "Ascendant Trident", enchants: ["Loyalty III", "Impaling V", "Unb III"] }]) },
+      custom: { name: "CUSTOM", subtitle: "Kit Preview", images: ["/images/rank-kits/custom-kit-preview.png"], accent: "#c084fc", alt: "Custom rank kit preview for DevourMC", kitTitle: "CUSTOM KIT", equipment: customKitEquipment }
     };
 
     const crates = [
@@ -2394,11 +2415,34 @@
       devour: { primary: "#a855f7", glow: "rgba(168, 85, 247, 0.35)", soft: "rgba(168, 85, 247, 0.16)" }
     };
 
+    const cratePreviewRewards = {
+      titan: {
+        equipment: ["Diamond Helmet", "Diamond Chestplate", "Diamond Leggings", "Diamond Boots", "Diamond Sword", "Diamond Axe", "Diamond Pickaxe", "Diamond Shovel", "Shield"],
+        specialRewards: ["1x Titan Crate Key", "7d Elite Rank", "$25,000 Money", "250 Credits"],
+        spawnerRewards: ["Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward"]
+      },
+      reaper: {
+        equipment: ["Diamond Helmet", "Diamond Chestplate", "Diamond Leggings", "Diamond Boots", "Diamond Sword", "Diamond Axe", "Diamond Pickaxe", "Diamond Shovel", "Shield"],
+        specialRewards: ["1x Reaper Crate Key", "7d Cosmic Rank", "$50,000 Money", "500 Credits"],
+        spawnerRewards: ["Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward"]
+      },
+      omega: {
+        equipment: ["Netherite Helmet", "Netherite Chestplate", "Netherite Leggings", "Netherite Boots", "Netherite Sword", "Netherite Axe", "Netherite Pickaxe", "Netherite Shovel", "Shield", "Trident"],
+        specialRewards: ["2x Omega Crate Key", "7d Archon Rank", "$75,000 Money", "750 Credits"],
+        spawnerRewards: ["Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward"]
+      },
+      royal: {
+        equipment: ["Netherite Helmet", "Netherite Chestplate", "Netherite Leggings", "Netherite Boots", "Netherite Sword", "Netherite Axe", "Netherite Pickaxe", "Netherite Shovel", "Shield", "Trident"],
+        specialRewards: ["3x Royal Crate Key", "7d Celestial Rank", "$100,000 Money", "1,000 Credits"],
+        spawnerRewards: ["Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward", "Spawner Reward"]
+      }
+    };
+
     const cratePreviews = {
-      titan: { name: "Titan Crate Key", heading: "Possible Rewards", images: ["/images/crates/titan-crate-preview.png", "/images/crates/titan-crate-preview-2.png"], accent: crateThemes.titan.primary, alt: "Titan crate rewards preview for DevourMC" },
-      reaper: { name: "Reaper Crate Key", heading: "Possible Rewards", images: ["/images/crates/reaper-crate-preview.png", "/images/crates/reaper-crate-preview-2.png"], accent: crateThemes.reaper.primary, alt: "Reaper crate rewards preview for DevourMC" },
-      omega: { name: "Omega Crate Key", heading: "Possible Rewards", images: ["/images/crates/omega-crate-preview.png", "/images/crates/omega-crate-preview-2.png"], accent: crateThemes.omega.primary, alt: "Omega crate rewards preview for DevourMC" },
-      royal: { name: "Royal Crate Key", heading: "Possible Rewards", images: ["/images/crates/royal-crate-preview.png", "/images/crates/royal-crate-preview-2.png"], accent: crateThemes.royal.primary, alt: "Royal crate rewards preview for DevourMC" },
+      titan: { name: "Titan Crate Key", heading: "Possible Rewards", images: ["/images/crates/titan-crate-preview.png", "/images/crates/titan-crate-preview-2.png"], accent: crateThemes.titan.primary, alt: "Titan crate rewards preview for DevourMC", ...cratePreviewRewards.titan },
+      reaper: { name: "Reaper Crate Key", heading: "Possible Rewards", images: ["/images/crates/reaper-crate-preview.png", "/images/crates/reaper-crate-preview-2.png"], accent: crateThemes.reaper.primary, alt: "Reaper crate rewards preview for DevourMC", ...cratePreviewRewards.reaper },
+      omega: { name: "Omega Crate Key", heading: "Possible Rewards", images: ["/images/crates/omega-crate-preview.png", "/images/crates/omega-crate-preview-2.png"], accent: crateThemes.omega.primary, alt: "Omega crate rewards preview for DevourMC", ...cratePreviewRewards.omega },
+      royal: { name: "Royal Crate Key", heading: "Possible Rewards", images: ["/images/crates/royal-crate-preview.png", "/images/crates/royal-crate-preview-2.png"], accent: crateThemes.royal.primary, alt: "Royal crate rewards preview for DevourMC", ...cratePreviewRewards.royal },
       devour: { name: "Devour Crate Key", heading: "Crate Preview", images: ["./images/crates/devour-crate-preview.svg"], accent: crateThemes.devour.primary, alt: "Devour crate rewards preview for DevourMC" }
     };
 
@@ -2502,6 +2546,9 @@
       id: "devourmc-checkout-session-id",
       started: "devourmc-checkout-started",
       completed: "devourmc-checkout-completed",
+      paymentStarted: "devourmc-checkout-payment-started",
+      paymentConfirmed: "devourmc-checkout-payment-confirmed",
+      paymentOrderId: "devourmc-checkout-payment-order-id",
       sent: "devourmc-checkout-abandoned-sent",
       orderReference: "devourmc-checkout-order-reference"
     };
@@ -2513,6 +2560,9 @@
       checkoutSessionId: readSessionValue(CHECKOUT_SESSION_KEYS.id),
       checkoutStarted: readSessionValue(CHECKOUT_SESSION_KEYS.started) === "1",
       checkoutCompleted: readSessionValue(CHECKOUT_SESSION_KEYS.completed) === "1",
+      paymentStarted: readSessionValue(CHECKOUT_SESSION_KEYS.paymentStarted) === "1",
+      paymentConfirmed: readSessionValue(CHECKOUT_SESSION_KEYS.paymentConfirmed) === "1",
+      checkoutPaymentOrderId: readSessionValue(CHECKOUT_SESSION_KEYS.paymentOrderId),
       abandonedWebhookSent: readSessionValue(CHECKOUT_SESSION_KEYS.sent) === "1",
       checkoutOrderReference: readSessionValue(CHECKOUT_SESSION_KEYS.orderReference),
       checkoutHiddenAt: 0,
@@ -3431,28 +3481,25 @@
 
     function renderKitContent(preview) {
       const equipment = Array.isArray(preview?.equipment) ? preview.equipment : [];
-      const otherItems = Array.isArray(preview?.otherItems) ? preview.otherItems : [];
-      if (!equipment.length && !otherItems.length) return "";
-      const equipmentHTML = equipment.length ? `<div class="kit-section">
-        <h4>Equipment and Enchantments</h4>
+      const specialRewards = Array.isArray(preview?.specialRewards) ? preview.specialRewards : Array.isArray(preview?.rewards) ? preview.rewards : [];
+      const spawnerRewards = Array.isArray(preview?.spawnerRewards) ? preview.spawnerRewards : Array.isArray(preview?.spawners) ? preview.spawners : [];
+      if (!equipment.length && !specialRewards.length && !spawnerRewards.length) return "";
+      const renderEntry = item => {
+        const itemName = safeText(item?.name || item);
+        const enchants = Array.isArray(item?.enchants) ? item.enchants.map(safeText).filter(Boolean) : [];
+        return `<li class="kit-entry"><strong>${escapeHTML(itemName)}</strong>${enchants.length ? `<span>↳ ${escapeHTML(enchants.join(" · "))}</span>` : ""}</li>`;
+      };
+      const renderSection = (title, list) => list.length ? `<div class="kit-section">
+        <h4>${escapeHTML(title)}</h4>
         <ul class="kit-list">
-          ${equipment.map(item => {
-            const itemName = safeText(item?.name || item);
-            const enchants = Array.isArray(item?.enchants) ? item.enchants.map(safeText).filter(Boolean) : [];
-            return `<li class="kit-entry"><strong>${escapeHTML(itemName)}</strong>${enchants.length ? `<span>↳ ${escapeHTML(enchants.join(" · "))}</span>` : ""}</li>`;
-          }).join("")}
-        </ul>
-      </div>` : "";
-      const otherItemsHTML = otherItems.length ? `<div class="kit-section">
-        <h4>Other Items</h4>
-        <ul class="kit-list">
-          ${otherItems.map(item => `<li class="kit-entry"><strong>${escapeHTML(safeText(item))}</strong></li>`).join("")}
+          ${list.map(renderEntry).join("")}
         </ul>
       </div>` : "";
       return `<div class="kit-content">
-        <h3>${escapeHTML(safeText(preview?.kitTitle) || `${safeText(preview?.name) || "Rank"} Kit`)}</h3>
-        ${equipmentHTML}
-        ${otherItemsHTML}
+        <h3>${escapeHTML(safeText(preview?.kitTitle || preview?.rewardTitle || preview?.heading) || `${safeText(preview?.name) || "Preview"} Kit`)}</h3>
+        ${renderSection(equipment.some(item => Array.isArray(item?.enchants) && item.enchants.length) ? "Equipment and Enchantments" : "Equipment", equipment)}
+        ${renderSection("Special Rewards", specialRewards)}
+        ${renderSection("Spawner Rewards", spawnerRewards)}
       </div>`;
     }
 
@@ -4701,6 +4748,7 @@
         carouselId: `crate-${crate.id}`,
         accent: preview.accent,
         alt: preview.alt,
+        kitContent: preview,
         actionHTML: crate.enabled ? `<button class="btn btn-primary crate-preview-action" data-add-crate="${crate.id}" type="button">Add Key to Cart</button>` : ""
       });
     }
@@ -4843,6 +4891,9 @@
       writeSessionValue(CHECKOUT_SESSION_KEYS.id, state.checkoutSessionId);
       writeSessionValue(CHECKOUT_SESSION_KEYS.started, state.checkoutStarted ? "1" : "");
       writeSessionValue(CHECKOUT_SESSION_KEYS.completed, state.checkoutCompleted ? "1" : "");
+      writeSessionValue(CHECKOUT_SESSION_KEYS.paymentStarted, state.paymentStarted ? "1" : "");
+      writeSessionValue(CHECKOUT_SESSION_KEYS.paymentConfirmed, state.paymentConfirmed ? "1" : "");
+      writeSessionValue(CHECKOUT_SESSION_KEYS.paymentOrderId, state.checkoutPaymentOrderId);
       writeSessionValue(CHECKOUT_SESSION_KEYS.sent, state.abandonedWebhookSent ? "1" : "");
       writeSessionValue(CHECKOUT_SESSION_KEYS.orderReference, state.checkoutOrderReference);
     }
@@ -4851,6 +4902,9 @@
       state.checkoutSessionId = checkoutSessionId();
       state.checkoutStarted = true;
       state.checkoutCompleted = false;
+      state.paymentStarted = false;
+      state.paymentConfirmed = false;
+      state.checkoutPaymentOrderId = "";
       state.abandonedWebhookSent = false;
       state.checkoutOrderReference = orderReference || "";
       state.checkoutHiddenAt = 0;
@@ -4859,6 +4913,7 @@
 
     function completeCheckoutTracking() {
       state.checkoutCompleted = true;
+      state.paymentConfirmed = true;
       state.checkoutStarted = false;
       persistCheckoutSession();
     }
@@ -4872,6 +4927,7 @@
         state.checkoutStarted &&
         state.checkoutSessionId &&
         !state.checkoutCompleted &&
+        !state.paymentConfirmed &&
         !state.abandonedWebhookSent &&
         state.cart.length &&
         checkoutHasReportableItems() &&
@@ -4882,6 +4938,7 @@
     function abandonedCheckoutPayload(reason) {
       return {
         checkoutSessionId: state.checkoutSessionId,
+        paymentOrderId: state.checkoutPaymentOrderId || null,
         orderReference: state.checkoutOrderReference || null,
         minecraftUsername: state.username,
         reason,
@@ -4934,7 +4991,7 @@
       revalidateAppliedCouponAfterCartChange();
       const ref = `DMC-2026-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
       beginAbandonedCheckoutTracking(ref);
-      openModal("Checkout", `<p><strong>Order Reference:</strong> ${ref}</p><p><strong>Minecraft username:</strong> ${escapeHTML(state.username)}</p><div id="checkoutSummary">${checkoutSummaryHTML()}</div><p>Secure payment integration will be connected here. Please join the DevourMC Discord for current purchase assistance.</p><label style="display:flex;gap:10px;align-items:flex-start"><input id="termsAgree" type="checkbox" style="width:auto;margin-top:3px"> I agree to the DevourMC store policies and understand this is not a live payment gateway.</label><div class="error-text" id="checkoutError"></div><div class="modal-actions"><button class="btn btn-primary" id="continuePayment" type="button">Continue to Payment</button><a class="btn" href="${SERVER.discord}" target="_blank" rel="noopener noreferrer">Join Discord</a><button class="btn" id="copyOrder" type="button" data-order-ref="${ref}">Copy Order Summary</button><button class="btn" data-policy-summary type="button">Policies Summary</button><button class="btn" id="closeCheckout" type="button">Close</button></div>`);
+      openModal("Checkout", `<p><strong>Order Reference:</strong> ${ref}</p><p><strong>Minecraft username:</strong> ${escapeHTML(state.username)}</p><div id="checkoutSummary">${checkoutSummaryHTML()}</div><p>Payments are processed securely through Razorpay. Your order is delivered only after server-side payment verification.</p><label style="display:flex;gap:10px;align-items:flex-start"><input id="termsAgree" type="checkbox" style="width:auto;margin-top:3px"> I agree to the DevourMC store policies and understand digital purchases are delivered to the entered Minecraft username.</label><div class="error-text" id="checkoutError" role="status" aria-live="polite"></div><div class="modal-actions"><button class="btn btn-primary" id="continuePayment" type="button">Continue to Payment</button><a class="btn" href="${SERVER.discord}" target="_blank" rel="noopener noreferrer">Join Discord</a><button class="btn" id="copyOrder" type="button" data-order-ref="${ref}">Copy Order Summary</button><button class="btn" data-policy-summary type="button">Policies Summary</button><button class="btn" id="closeCheckout" type="button">Close</button></div>`);
     }
 
     function openPoliciesSummary() {
@@ -4946,13 +5003,137 @@
       ].map(([title, body], i) => accordionItem(title, body, i === 0)).join("")}</div>`);
     }
 
-    async function createCheckoutSession(orderData) {
-      // Connect Razorpay, Cashfree, Stripe, Tebex, or another approved payment provider here.
-      // Final price, coupon validation, and product delivery must happen on the backend.
-      // Never trust prices, discount amounts, or totals received only from frontend JavaScript.
-      // Never expose payment secrets in browser code.
-      // Payment confirmation must be verified using secure webhooks.
-      return orderData;
+    function paymentCartItems() {
+      return state.cart.map(item => ({
+        type: item.type,
+        id: item.id,
+        quantity: Number(item.qty) || 1
+      }));
+    }
+
+    function setCheckoutStatus(message, isError = false) {
+      const status = document.getElementById("checkoutError");
+      if (!status) return;
+      status.textContent = message || "";
+      status.style.color = isError ? "var(--error)" : "var(--success)";
+    }
+
+    async function createCheckoutSession() {
+      const response = await fetch("/api/payments?action=create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          minecraftUsername: state.username,
+          items: paymentCartItems(),
+          couponCode: state.appliedCouponCode || ""
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload?.success !== true) {
+        throw new Error(payload?.error || "Payment order could not be created.");
+      }
+      return payload;
+    }
+
+    async function verifyRazorpayPayment(response, internalOrderId) {
+      const verifyResponse = await fetch("/api/payments?action=verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          internalOrderId,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_signature: response.razorpay_signature
+        })
+      });
+      const payload = await verifyResponse.json().catch(() => ({}));
+      if (!verifyResponse.ok || payload?.success !== true || payload?.verified !== true) {
+        throw new Error(payload?.error || "Payment could not be verified.");
+      }
+      return payload;
+    }
+
+    async function startRazorpayCheckout() {
+      if (!state.cart.length) {
+        setCheckoutStatus("Your cart is empty.", true);
+        return;
+      }
+      if (!window.Razorpay) {
+        setCheckoutStatus("Payment gateway could not be loaded. Please refresh and try again.", true);
+        return;
+      }
+      const button = document.getElementById("continuePayment");
+      try {
+        if (button) {
+          button.disabled = true;
+          button.textContent = "Preparing Payment...";
+        }
+        setCheckoutStatus("Creating secure payment order...");
+        state.paymentStarted = true;
+        persistCheckoutSession();
+        const payload = await createCheckoutSession();
+        const order = payload.order || {};
+        state.checkoutPaymentOrderId = order.internalOrderId || "";
+        persistCheckoutSession();
+        const razorpay = new window.Razorpay({
+          key: payload.keyId,
+          amount: order.amount,
+          currency: order.currency || "INR",
+          name: "DevourMC",
+          description: `Order ${order.internalOrderId}`,
+          order_id: order.razorpayOrderId,
+          prefill: {
+            name: state.username
+          },
+          theme: {
+            color: "#8b5cf6"
+          },
+          handler: async paymentResponse => {
+            try {
+              setCheckoutStatus("Verifying payment...");
+              const verified = await verifyRazorpayPayment(paymentResponse, order.internalOrderId);
+              completeCheckoutTracking();
+              state.cart = [];
+              clearAppliedCoupon("");
+              saveCart();
+              setCheckoutStatus("Payment successful. Your order has been verified.");
+              showToast("Payment successful. Your order has been verified.");
+              refreshCheckoutSummary();
+            } catch (error) {
+              setCheckoutStatus("Payment could not be verified. No rewards have been delivered.", true);
+              console.error("Razorpay verification failed:", error);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              state.paymentStarted = false;
+              persistCheckoutSession();
+              setCheckoutStatus("Payment was cancelled. Your cart is still saved.", true);
+              if (button) {
+                button.disabled = false;
+                button.textContent = "Continue to Payment";
+              }
+            }
+          }
+        });
+        razorpay.on("payment.failed", response => {
+          console.warn("Razorpay payment failed:", response?.error?.code || "unknown");
+          setCheckoutStatus("Payment could not be verified. No rewards have been delivered.", true);
+          if (button) {
+            button.disabled = false;
+            button.textContent = "Continue to Payment";
+          }
+        });
+        razorpay.open();
+      } catch (error) {
+        state.paymentStarted = false;
+        persistCheckoutSession();
+        setCheckoutStatus(error.message || "Payment could not be started.", true);
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Continue to Payment";
+        }
+      }
     }
 
     function updateCreditUI() {
@@ -5125,12 +5306,11 @@
         if (target.matches("#copyOrder")) copyText(checkoutCopyText(target.dataset.orderRef || "DMC-2026"), "Order summary copied!");
         if (target.matches("#continuePayment")) {
           const ok = document.getElementById("termsAgree")?.checked;
-          const orderDetails = checkoutOrderDetails();
-          document.getElementById("checkoutError").textContent = ok ? `Payment gateway is not connected yet. Final payable amount: ${money(orderDetails.finalTotal)}. Join Discord for purchase assistance.` : "Please agree to the store policies first.";
-          if (ok) {
-            // Do not mark checkout complete until a future payment gateway confirms payment server-side.
-            createCheckoutSession({ username: state.username, cart: state.cart, couponCode: orderDetails.couponCode, orderDetails });
+          if (!ok) {
+            setCheckoutStatus("Please agree to the store policies first.", true);
+            return;
           }
+          startRazorpayCheckout();
         }
         if (target.matches("#closeCheckout")) closeModal();
         if (target.matches("[data-policy-summary]")) openPoliciesSummary();
