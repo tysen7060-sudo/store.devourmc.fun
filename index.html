@@ -3798,8 +3798,8 @@
     }
 
     function teamStatHeaders(tabId) {
-      if (tabId === "overall") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡</span><span>Kills</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span aria-hidden="true">🏳️</span><span>Overall</span></span></th>`;
-      if (tabId === "kills") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡</span><span>Kills</span></span></th>`;
+      if (tabId === "overall") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡️️</span><span>Kills</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span aria-hidden="true">🏳️</span><span>Overall</span></span></th>`;
+      if (tabId === "kills") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡️️</span><span>Kills</span></span></th>`;
       if (tabId === "balance") return `<th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th>`;
       return `<th><span class="leaderboard-stat-heading leaderboard-stat-members"><span aria-hidden="true">👤</span><span>Members</span></span></th>`;
     }
@@ -3894,7 +3894,7 @@
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3>
         <div class="podium-stats team-podium-stats">
           ${tabId === "overall"
-            ? [["🗡 KILLS", item.formattedKills, "kills"], ["$ BALANCE", item.formattedBalance, "balance"], ["👤 MEMBERS", item.memberCount, "members"], ["🏳️ OVERALL", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
+            ? [["🗡️️ KILLS", item.formattedKills, "kills"], ["$ BALANCE", item.formattedBalance, "balance"], ["👤 MEMBERS", item.memberCount, "members"], ["🏳️ OVERALL", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
             : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
         </div>
         <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
