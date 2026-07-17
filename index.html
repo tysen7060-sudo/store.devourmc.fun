@@ -1483,6 +1483,17 @@
       font-weight: 900;
       text-align: right;
     }
+    .podium-stats.player-podium-single-stat .podium-stat {
+      grid-template-columns: auto auto;
+      justify-content: center;
+      justify-items: center;
+      text-align: center;
+    }
+    .podium-stats.player-podium-single-stat .podium-stat-label,
+    .podium-stats.player-podium-single-stat .podium-stat-value {
+      justify-content: center;
+      text-align: center;
+    }
     .team-podium-leader-avatar {
       width: 64px;
       height: 64px;
@@ -1663,6 +1674,12 @@
     .player-leaderboard-table .leaderboard-value.leaderboard-stat-credits,
     .player-leaderboard-table .leaderboard-value.leaderboard-stat-playtime { color: var(--text); }
     .player-leaderboard-table .leaderboard-value.leaderboard-stat-overall { color: #c084fc; }
+    .player-leaderboard-table:not(.player-overall-table) .leaderboard-value.leaderboard-stat-kills { color: #67e8f9; }
+    .player-leaderboard-table:not(.player-overall-table) .leaderboard-value.leaderboard-stat-money { color: #86efac; }
+    .player-leaderboard-table:not(.player-overall-table) .leaderboard-value.leaderboard-stat-deaths { color: #fb7185; }
+    .player-leaderboard-table:not(.player-overall-table) .leaderboard-value.leaderboard-stat-gems { color: #a78bfa; }
+    .player-leaderboard-table:not(.player-overall-table) .leaderboard-value.leaderboard-stat-credits { color: #fdba74; }
+    .player-leaderboard-table:not(.player-overall-table) .leaderboard-value.leaderboard-stat-playtime { color: #fde68a; }
     .rank-top-1 { color: var(--warning); }
     .rank-top-2 { color: var(--neon); }
     .rank-top-3 { color: var(--bright); }
@@ -3769,7 +3786,7 @@
       }
       const statHeaders = teamStatHeaders(tabId);
       area.innerHTML = `${renderTeamPodium(data, tabId)}
-        <div class="table-wrap reveal visible"><table class="leaderboard-table team-leaderboard-table"><thead><tr><th>Position</th><th>${TEAM_LEADERBOARD_CONFIG.nameLabel}</th><th>Leader</th><th>Members</th>${statHeaders}</tr></thead><tbody>
+        <div class="table-wrap reveal visible"><table class="leaderboard-table team-leaderboard-table"><thead><tr><th>Position</th><th>${TEAM_LEADERBOARD_CONFIG.nameLabel}</th><th>Leader</th><th><span class="leaderboard-stat-heading leaderboard-stat-members"><span aria-hidden="true">👤</span><span>Members</span></span></th>${statHeaders}</tr></thead><tbody>
           ${data.map(entry => `<tr>
             <td><strong class="${rankClass(entry.position)}">#${entry.position}</strong></td>
             <td><strong>&#9670; ${escapeHTML(entry.displayName)}</strong></td>
@@ -3781,17 +3798,17 @@
     }
 
     function teamStatHeaders(tabId) {
-      if (tabId === "overall") return `<th>Kills</th><th>Balance</th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span>Overall</span></span></th>`;
-      if (tabId === "kills") return "<th>Kills</th>";
-      if (tabId === "balance") return "<th>Balance</th>";
-      return "<th>Members</th>";
+      if (tabId === "overall") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡</span><span>Kills</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th><th><span class="leaderboard-stat-heading leaderboard-stat-overall"><span aria-hidden="true">🏳️</span><span>Overall</span></span></th>`;
+      if (tabId === "kills") return `<th><span class="leaderboard-stat-heading leaderboard-stat-kills"><span aria-hidden="true">🗡</span><span>Kills</span></span></th>`;
+      if (tabId === "balance") return `<th><span class="leaderboard-stat-heading leaderboard-stat-balance"><span aria-hidden="true">$</span><span>Balance</span></span></th>`;
+      return `<th><span class="leaderboard-stat-heading leaderboard-stat-members"><span aria-hidden="true">👤</span><span>Members</span></span></th>`;
     }
 
     function teamStatCells(entry, tabId) {
       if (tabId === "overall") {
-        return `<td class="leaderboard-value">${escapeHTML(entry.formattedKills)}</td><td class="leaderboard-value">${escapeHTML(entry.formattedBalance)}</td><td class="leaderboard-value leaderboard-stat-value leaderboard-stat-overall">${escapeHTML(entry.formattedOverallScore)}</td>`;
+        return `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-kills">${escapeHTML(entry.formattedKills)}</td><td class="leaderboard-value leaderboard-stat-value leaderboard-stat-balance">${escapeHTML(entry.formattedBalance)}</td><td class="leaderboard-value leaderboard-stat-value leaderboard-stat-overall">${escapeHTML(entry.formattedOverallScore)}</td>`;
       }
-      return `<td class="leaderboard-value">${escapeHTML(teamMetricValue(entry, tabId))}</td>`;
+      return `<td class="leaderboard-value leaderboard-stat-value leaderboard-stat-${escapeHTML(tabId)}">${escapeHTML(teamMetricValue(entry, tabId))}</td>`;
     }
 
     function renderPerson(person, fallbackName) {
@@ -3838,7 +3855,7 @@
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.name)}</h3>
         ${tabId === "overall" ? `<div class="podium-stats overall-stats">
           ${["kills", "money", "deaths", "gems", "credits", "playtime", "overall"].map(key => renderPlayerPodiumStat(key, item[key])).join("")}
-        </div>` : `<div class="podium-stats">
+        </div>` : `<div class="podium-stats player-podium-single-stat">
           ${renderPlayerPodiumStat(tabId, item.value, label, true)}
         </div>`}
       </div>`).join("")}</div>`;
@@ -3877,7 +3894,7 @@
         <div class="podium-rank">${labels[i]}</div><h3>${escapeHTML(item.displayName)}</h3>
         <div class="podium-stats team-podium-stats">
           ${tabId === "overall"
-            ? [["🗡 Kills", item.formattedKills, ""], ["$ Balance", item.formattedBalance, ""], ["👤 Members", item.memberCount, ""], ["🏳️ Overall", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
+            ? [["🗡 KILLS", item.formattedKills, "kills"], ["$ BALANCE", item.formattedBalance, "balance"], ["👤 MEMBERS", item.memberCount, "members"], ["🏳️ OVERALL", item.formattedOverallScore, "overall"]].map(([statLabel, statValue, statClass]) => renderTeamPodiumStat(statLabel, statValue, statClass)).join("")
             : renderTeamPodiumStat(label, teamMetricValue(item, tabId))}
         </div>
         <div class="podium-team-members">${renderTeamMembers(item, { excludeLeader: true })}</div>
@@ -3887,7 +3904,7 @@
     function renderTeamPodiumStat(label, value, statClass = "") {
       const colorClass = safeText(statClass);
       return `<div class="podium-stat">
-        <span class="podium-stat-label">${escapeHTML(label)}</span>
+        <span class="podium-stat-label ${colorClass ? `leaderboard-stat-${escapeHTML(colorClass)}` : ""}">${escapeHTML(label)}</span>
         <span class="podium-stat-value ${colorClass ? `leaderboard-stat-${escapeHTML(colorClass)}` : ""}">${escapeHTML(value)}</span>
       </div>`;
     }
