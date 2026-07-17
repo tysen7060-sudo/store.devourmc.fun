@@ -2968,7 +2968,9 @@
     function leaderboardEntryArray(payload) {
       if (Array.isArray(payload?.data)) return payload.data;
       if (Array.isArray(payload?.data?.entries)) return payload.data.entries;
+      if (Array.isArray(payload?.data?.leaderboard)) return payload.data.leaderboard;
       if (Array.isArray(payload?.entries)) return payload.entries;
+      if (Array.isArray(payload?.leaderboard)) return payload.leaderboard;
       return [];
     }
 
@@ -2976,11 +2978,12 @@
       if (!entry || typeof entry !== "object") return null;
       const tab = LEADERBOARD_CONFIG.tabs[tabId];
       if (!tab) return null;
-      const hasValue = entry.formattedValue !== undefined || entry.rawValue !== undefined || entry.formattedOverallScore !== undefined || entry.overallScore !== undefined;
+      const metric = playerMetric(entry, tabId);
+      const hasValue = metric.formatted !== "" || metric.raw !== null || entry.formattedValue !== undefined || entry.rawValue !== undefined || entry.formattedOverallScore !== undefined || entry.overallScore !== undefined;
       if (!hasValue) return null;
       const username = safeText(entry.username || entry.name) || "Unknown Player";
       const position = Number.parseInt(String(entry.position), 10) || index + 1;
-      const formattedValue = entry.formattedValue ?? String(entry.rawValue ?? 0);
+      const formattedValue = metric.formatted || (entry.formattedValue ?? String(entry.rawValue ?? metric.raw ?? 0));
       const value = tabId === "overall"
         ? statDisplay(entry, "formattedOverallScore", "overallScore", formatClientScore)
         : safeText(formattedValue) || "0";
@@ -3005,6 +3008,38 @@
         valueLabel: tab.valueLabel,
         ...stats
       };
+    }
+
+    function playerMetric(entry, tabId) {
+      const metricKeys = {
+        overall: [["formattedOverallScore", "formattedScore", "formattedValue"], ["overallScore", "score", "rawValue"]],
+        money: [["formattedMoney", "formattedBalance", "formattedValue"], ["money", "balance", "rawValue"]],
+        kills: [["formattedKills", "formattedValue"], ["kills", "totalKills", "rawValue"]],
+        deaths: [["formattedDeaths", "formattedValue"], ["deaths", "totalDeaths", "rawValue"]],
+        gems: [["formattedGems", "formattedValue"], ["gems", "totalGems", "rawValue"]],
+        credits: [["formattedCredits", "formattedValue"], ["credits", "totalCredits", "rawValue"]],
+        playtime: [["formattedPlaytime", "formattedValue"], ["playtime", "playtimeTicks", "rawValue"]]
+      };
+      const [formattedKeys = ["formattedValue"], rawKeys = ["rawValue"]] = metricKeys[tabId] || [];
+      const formatted = firstSafeEntryValue(entry, formattedKeys);
+      const raw = firstPresentEntryValue(entry, rawKeys);
+      return { formatted, raw };
+    }
+
+    function firstSafeEntryValue(entry, keys) {
+      for (const key of keys) {
+        const value = safeText(entry?.[key]);
+        if (value) return value;
+      }
+      return "";
+    }
+
+    function firstPresentEntryValue(entry, keys) {
+      for (const key of keys) {
+        const value = entry?.[key];
+        if (value !== undefined && value !== null && safeText(value) !== "") return value;
+      }
+      return null;
     }
 
     function statDisplay(entry, formattedKey, rawKey, formatter = String) {

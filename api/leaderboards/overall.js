@@ -26,14 +26,14 @@ function playerKey(entry) {
   return username ? `name:${username}` : "";
 }
 
-function metricMap(payload) {
+function metricMap(payload, config) {
   const map = new Map();
   for (const entry of extractEntries(payload)) {
     const key = playerKey(entry);
     if (!key) continue;
     map.set(key, {
-      rawValue: entry?.rawValue ?? null,
-      formattedValue: safeText(entry?.formattedValue)
+      rawValue: entry?.[config.rawField] ?? entry?.rawValue ?? null,
+      formattedValue: safeText(entry?.[config.formattedField] ?? entry?.formattedValue)
     });
   }
   return map;
@@ -134,7 +134,7 @@ module.exports = async function overallLeaderboardHandler(req, res) {
     supplementalResults.forEach((result, index) => {
       const config = SUPPLEMENTAL_LEADERBOARDS[index];
       if (result.status === "fulfilled") {
-        supplementalMaps[config.id] = metricMap(result.value);
+        supplementalMaps[config.id] = metricMap(result.value, config);
       } else {
         logSupplementalFailure(config, result.reason);
         supplementalMaps[config.id] = new Map();
