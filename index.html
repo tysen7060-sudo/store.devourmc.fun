@@ -1087,23 +1087,34 @@
       font-weight: 900;
     }
     .leaderboard-members {
-      display: grid;
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
-      align-items: start;
+      align-items: center;
       max-width: 260px;
     }
     .leaderboard-member {
-      display: flex;
-      align-items: center;
-      gap: 9px;
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
       min-width: 0;
     }
     .leaderboard-member-avatar {
       width: 30px;
       height: 30px;
+      display: block;
+      object-fit: cover;
       border-radius: 8px;
     }
-    .leaderboard-member-more { color: var(--muted); font-weight: 900; }
+    .leaderboard-member-more {
+      align-self: center;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
     .podium-stats {
       display: grid;
       gap: 8px;
@@ -3027,16 +3038,16 @@
       const username = safeText(entry.username || entry.name) || "Unknown Player";
       const position = Number.parseInt(String(entry.position), 10) || index + 1;
       const formattedValue = metric.formatted || (entry.formattedValue ?? String(entry.rawValue ?? metric.raw ?? 0));
-      const value = tabId === "overall"
+      const value = cleanLeaderboardDisplayValue(tabId, tabId === "overall"
         ? statDisplay(entry, "formattedOverallScore", "overallScore", formatClientScore)
-        : safeText(formattedValue) || "0";
+        : safeText(formattedValue) || "0");
       const stats = {
-        kills: tabId === "overall" ? statDisplay(entry, "formattedKills", "kills", formatClientInteger) : tabId === "kills" ? value : "",
+        kills: tabId === "overall" ? cleanLeaderboardDisplayValue("kills", statDisplay(entry, "formattedKills", "kills", formatClientInteger)) : tabId === "kills" ? value : "",
         money: tabId === "overall" ? statDisplay(entry, "formattedMoney", "money", formatClientMoney) : tabId === "money" ? value : "",
-        deaths: tabId === "overall" ? statDisplay(entry, "formattedDeaths", "deaths", formatClientInteger) : tabId === "deaths" ? value : "",
-        gems: tabId === "overall" ? statDisplay(entry, "formattedGems", "gems", formatClientInteger) : tabId === "gems" ? value : "",
-        credits: tabId === "overall" ? statDisplay(entry, "formattedCredits", "credits", formatClientInteger) : tabId === "credits" ? value : "",
-        playtime: tabId === "overall" ? statDisplay(entry, "formattedPlaytime", "playtime", () => "Unavailable") : tabId === "playtime" ? value : "",
+        deaths: tabId === "overall" ? cleanLeaderboardDisplayValue("deaths", statDisplay(entry, "formattedDeaths", "deaths", formatClientInteger)) : tabId === "deaths" ? value : "",
+        gems: tabId === "overall" ? cleanLeaderboardDisplayValue("gems", statDisplay(entry, "formattedGems", "gems", formatClientInteger)) : tabId === "gems" ? value : "",
+        credits: tabId === "overall" ? cleanLeaderboardDisplayValue("credits", statDisplay(entry, "formattedCredits", "credits", formatClientInteger)) : tabId === "credits" ? value : "",
+        playtime: tabId === "overall" ? cleanLeaderboardDisplayValue("playtime", statDisplay(entry, "formattedPlaytime", "playtime", () => "Unavailable")) : tabId === "playtime" ? value : "",
         overall: tabId === "overall" ? value : ""
       };
       return {
@@ -3091,6 +3102,24 @@
       const raw = entry?.[rawKey];
       if (raw === undefined || raw === null) return "Unavailable";
       return safeText(formatter(raw)) || "Unavailable";
+    }
+
+    function cleanLeaderboardDisplayValue(key, value) {
+      const text = safeText(value);
+      if (!text) return key === "playtime" ? "Unavailable" : "0";
+      if (["kills", "deaths", "gems", "credits"].includes(key)) {
+        const stripped = text
+          .replace(/\s*(kills?|deaths?|gems?|credits?)\b/giu, "")
+          .trim();
+        return stripped || "0";
+      }
+      if (key === "playtime") {
+        return text
+          .replace(/\bhours?\b/giu, "h")
+          .replace(/\s+/gu, " ")
+          .trim();
+      }
+      return text;
     }
 
     function formatClientInteger(value) {
@@ -3161,11 +3190,11 @@
         members: normalizedMembers,
         memberCount: Number.isFinite(memberCount) ? memberCount : normalizedMembers.length,
         kills: Number.isFinite(totalKills) ? totalKills : 0,
-        formattedKills: safeText(entry.formattedKills) || String(Number.isFinite(totalKills) ? totalKills : 0),
+        formattedKills: cleanLeaderboardDisplayValue("kills", safeText(entry.formattedKills) || String(Number.isFinite(totalKills) ? totalKills : 0)),
         balance: Number.isFinite(totalBalance) ? totalBalance : 0,
         formattedBalance: safeText(entry.formattedBalance) || (Number.isFinite(totalBalance) ? totalBalance.toLocaleString("en-US") : "0"),
         overallScore: Number.isFinite(overallScore) ? overallScore : 0,
-        formattedOverallScore: safeText(entry.formattedOverallScore ?? entry.formattedValue) || String(Number.isFinite(overallScore) ? overallScore : 0),
+        formattedOverallScore: cleanLeaderboardDisplayValue("overall", safeText(entry.formattedOverallScore ?? entry.formattedValue) || String(Number.isFinite(overallScore) ? overallScore : 0)),
         rawValue: entry.rawValue ?? null,
         formattedValue: entry.formattedValue ?? null,
         lastUpdated: entry.lastUpdated ?? null
@@ -3184,7 +3213,7 @@
     }
 
     function teamMetricValue(entry, tabId) {
-      if (entry.formattedValue && tabId === "overall") return String(entry.formattedValue);
+      if (tabId === "overall") return entry.formattedOverallScore;
       if (tabId === "kills") return entry.formattedKills;
       if (tabId === "balance") return entry.formattedBalance;
       if (tabId === "members") return String(entry.memberCount);
@@ -3277,7 +3306,7 @@
       const preview = members.slice(0, TEAM_MEMBER_PREVIEW_LIMIT);
       const remaining = Math.max(0, (Number(entry.memberCount) || members.length) - preview.length);
       return `<div class="leaderboard-members">
-        ${preview.map(member => `<div class="leaderboard-member"><img class="leaderboard-member-avatar" src="${escapeHTML(member.avatarUrl || fallbackAvatar())}" onerror="this.src='${fallbackAvatar()}'" alt=""><span class="leaderboard-member-name">${escapeHTML(member.username)}</span></div>`).join("")}
+        ${preview.map(member => `<div class="leaderboard-member" title="${escapeHTML(member.username)}"><img class="leaderboard-member-avatar" src="${escapeHTML(member.avatarUrl || fallbackAvatar())}" onerror="this.src='${fallbackAvatar()}'" alt="${escapeHTML(member.username)}"></div>`).join("")}
         ${remaining > 0 ? `<span class="leaderboard-member-more">+${remaining} more</span>` : ""}
       </div>`;
     }
