@@ -4662,6 +4662,17 @@
       });
     }
 
+    function reportCheckoutNavigation(reason, options = {}) {
+      reportAbandonedCheckout(reason, options);
+    }
+
+    function shouldReportForLinkNavigation(target) {
+      if (!shouldReportAbandonedCheckout() || !target?.matches?.("a[href]")) return false;
+      const href = target.getAttribute("href") || "";
+      if (!href || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:")) return false;
+      return true;
+    }
+
     function openCheckout() {
       if (!state.cart.length) { showToast("Your cart is empty."); return; }
       if (!requireUsername()) return;
@@ -4794,11 +4805,18 @@
     }
 
     function bindEvents() {
-      window.addEventListener("hashchange", navigate);
+      window.addEventListener("hashchange", () => {
+        reportCheckoutNavigation("hashchange");
+        navigate();
+      });
+      window.addEventListener("popstate", () => reportCheckoutNavigation("popstate"));
       document.addEventListener("click", event => {
         const target = event.target.closest("button, a");
         if (!event.target.closest(".more")) closeMore();
         if (!target) return;
+        if (shouldReportForLinkNavigation(target)) {
+          reportCheckoutNavigation("navigation_click", { keepalive: true });
+        }
         if (target.matches("[data-carousel-prev]")) { moveCarousel(target.dataset.carouselPrev, -1); return; }
         if (target.matches("[data-carousel-next]")) { moveCarousel(target.dataset.carouselNext, 1); return; }
         if (target.matches("[data-carousel-dot]")) { goCarousel(target.dataset.carouselDot, Number(target.dataset.carouselTarget)); return; }
@@ -4848,7 +4866,7 @@
           const orderDetails = checkoutOrderDetails();
           document.getElementById("checkoutError").textContent = ok ? `Payment gateway is not connected yet. Final payable amount: ${money(orderDetails.finalTotal)}. Join Discord for purchase assistance.` : "Please agree to the store policies first.";
           if (ok) {
-            completeCheckoutTracking();
+            // Do not mark checkout complete until a future payment gateway confirms payment server-side.
             createCheckoutSession({ username: state.username, cart: state.cart, couponCode: orderDetails.couponCode, orderDetails });
           }
         }
